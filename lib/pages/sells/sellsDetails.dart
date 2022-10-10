@@ -252,10 +252,7 @@ class _SellsDetailsState extends State<SellsDetails> {
                                   child: DataTable(
                                     headingRowHeight: 35,
                                     dataRowHeight: 25.0,
-                                    columnSpacing:
-                                        MediaQuery.of(context).size.width > 480
-                                            ? 56.0
-                                            : 15.0,
+                                    columnSpacing: 15.0,
                                     dataTextStyle: const TextStyle(
                                       fontSize: 14.0,
                                       fontWeight: FontWeight.w500,
@@ -266,26 +263,36 @@ class _SellsDetailsState extends State<SellsDetails> {
                                       fontWeight: FontWeight.w600,
                                       color: Colors.teal,
                                     ),
-                                    columns:
-                                        ['name', 'price', 'quantity', 'amount']
-                                            .map(
-                                              (e) => DataColumn(
-                                                label: Text(e.toUpperCase()),
-                                              ),
-                                            )
-                                            .toList(),
+                                    columns: ['name', 'price', 'qty', 'amount']
+                                        .map(
+                                          (e) => DataColumn(
+                                            label: Text(e.toUpperCase()),
+                                          ),
+                                        )
+                                        .toList(),
                                     rows: widget.transaction.items!
                                         .map(
                                           (e) => DataRow(
                                             cells: [
-                                              DataCell(Text(e.itemName)),
                                               DataCell(
-                                                  Text(e.price.toString())),
+                                                Text(e.itemName),
+                                              ),
                                               DataCell(
-                                                  Text(e.quantity.toString())),
-                                              DataCell(Text(
+                                                Text(
+                                                  e.price.toString(),
+                                                ),
+                                              ),
+                                              DataCell(
+                                                Text(
+                                                  e.quantity.toString(),
+                                                ),
+                                              ),
+                                              DataCell(
+                                                Text(
                                                   (e.price * e.quantity)
-                                                      .toString())),
+                                                      .toString(),
+                                                ),
+                                              ),
                                             ],
                                           ),
                                         )
@@ -309,7 +316,8 @@ class _SellsDetailsState extends State<SellsDetails> {
                                   ),
                                 ),
                                 const Padding(
-                                    padding: EdgeInsets.only(top: 12.0)),
+                                  padding: EdgeInsets.only(top: 12.0),
+                                ),
                                 Padding(
                                   padding: const EdgeInsets.all(8.0),
                                   child: Column(
