@@ -104,8 +104,6 @@ class NewSellsPageState extends State<NewSellsPage> {
     }
 
     if (widget.transaction != null) {
-      _editing = true;
-
       var trx = widget.transaction!;
 
       _customerNameController.text = trx.customerName;
@@ -116,7 +114,7 @@ class NewSellsPageState extends State<NewSellsPage> {
       _amountPaidController.text = trx.amountPaid.toString();
 
       _balanceController.text = trx.balance.toString();
-      totalAmount = trx.amount + trx.discount as double;
+      totalAmount = trx.amount + trx.discount;
 
       _equivalentAmount.text = (trx.amount + trx.discount).toString();
       _discountController.text = trx.discount.toString();
@@ -147,7 +145,6 @@ class NewSellsPageState extends State<NewSellsPage> {
   final TextEditingController _emailCOntroller = TextEditingController();
   final uid = Uuid();
 
-  bool _editing = false;
   double totalAmount = 0;
   double payableamount = 0;
 
@@ -439,14 +436,16 @@ class NewSellsPageState extends State<NewSellsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
-        label: Text("Save"),
-        icon: _saving ? CircularProgressIndicator() : Icon(Icons.save),
+        label: const Text("Save"),
+        icon: _saving
+            ? const CircularProgressIndicator(color: Colors.white)
+            : const Icon(Icons.save),
         onPressed: _saving ? () {} : _save,
       ),
       body: Form(
         child: GridView.count(
           padding: EdgeInsets.all(8.0),
-          childAspectRatio: 0.98,
+          childAspectRatio: 0.90,
           crossAxisCount: 1,
           children: [
             Card(
@@ -538,25 +537,36 @@ class NewSellsPageState extends State<NewSellsPage> {
                       ),
                     ),
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: GestureDetector(
-                          onTap: _addItem,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              borderRadius: BorderRadius.circular(25.0),
-                            ),
-                            width: 50.0,
-                            height: 50.0,
-                            child: const Icon(Icons.add),
-                          ),
-                        ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: MaterialButton(
+                      height: 50.0,
+                      color: Colors.green,
+                      onPressed: _addItem,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5.0),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6.0),
+                            child: const Icon(
+                              Icons.add,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          ),
+                          const Text(
+                            "ADD",
+                            style: TextStyle(
+                              fontSize: 18.0,
+                              color: Colors.white,
+                            ),
+                          )
+                        ],
+                      ),
+                    ),
                   )
                 ],
               ),
@@ -582,8 +592,8 @@ class NewSellsPageState extends State<NewSellsPage> {
                       children: List.generate(
                         addedItems.length,
                         (index) => ListTile(
-                          title: Text(addedItems[index].itemName +
-                              addedItems[index].quantity.toString()),
+                          title: Text(
+                              "${addedItems[index].itemName} x ${addedItems[index].quantity.toString()}"),
                           trailing: PopupMenuButton(
                             itemBuilder: (context) {
                               return const [

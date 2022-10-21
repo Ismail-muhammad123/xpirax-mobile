@@ -22,11 +22,12 @@ class DashBoard extends StatefulWidget {
 class _DashBoardState extends State<DashBoard> {
   final List<String> _sort_words = [
     "All",
+    "Today",
     "This Month",
     "This Year",
   ];
 
-  int _sort_val = 0;
+  int _sortVal = 0;
 
   final GlobalKey genKey = GlobalKey();
 
@@ -119,21 +120,20 @@ class _DashBoardState extends State<DashBoard> {
 
         const uid = Uuid();
 
-        var filteredData = snapshot.data!.map((e) {
+        var filteredData = snapshot.data!.where((e) {
           String date = e["date"];
           DateTime dt = DateTime.parse(date);
-
-          if (_sort_val == 1) {
-            if (dt.month == DateTime.now().month) {
-              return e;
-            }
+          switch (_sortVal) {
+            case 1:
+              return dt == DateTime.now();
+            case 2:
+              return dt.month == DateTime.now().month &&
+                  dt.year == DateTime.now().year;
+            case 3:
+              return dt.year == DateTime.now().year;
+            default:
+              return true;
           }
-          if (_sort_val == 2) {
-            if (dt.year == DateTime.now().year) {
-              return e;
-            }
-          }
-          return e;
         }).toList();
 
         var chartData = filteredData
@@ -149,73 +149,51 @@ class _DashBoardState extends State<DashBoard> {
             )
             .toList();
 
-        return Padding(
-          padding: const EdgeInsets.all(6.0),
-          child: SummaryChart(
-            heading: 'Sold Items'.toUpperCase(),
-            data: chartData,
-          ),
-        );
+        return filteredData.isNotEmpty
+            ? Padding(
+                padding: const EdgeInsets.all(6.0),
+                child: SummaryChart(
+                  heading: 'Sold Items'.toUpperCase(),
+                  data: chartData,
+                ),
+              )
+            : Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                child: Container(
+                  color: Colors.white,
+                  child: const Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        "No Transactions recorded today.",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
       },
     );
   }
 
   @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
     String today = DateFormat.yMMMMEEEEd().format(DateTime.now());
-    var summaryCardsList = [
-      Flexible(
-        child: Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(0.0),
-          ),
-          child: SizedBox(
-            height: 150,
-            child: InventoryItemsSummaryCard(),
-          ),
-        ),
-      ),
-      Flexible(
-        child: Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(0.0),
-          ),
-          child: SizedBox(
-            height: 150,
-            // width: 300,
-            child: TransactionsSummaryCard(),
-          ),
-        ),
-      ),
-      Flexible(
-        child: Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(0.0),
-          ),
-          child: SizedBox(
-            height: 150,
-            // width: 300,
-            child: SalesSummaryCard(),
-          ),
-        ),
-      ),
-      Flexible(
-        child: Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(0.0),
-          ),
-          child: SizedBox(
-            height: 150,
-            // width: 300,
-            child: DebtSummaryCard(),
-          ),
-        ),
-      ),
-    ];
     return Scaffold(
       backgroundColor: Colors.grey[200],
       appBar: AppBar(
-        title: Text("Dashboard"),
+        title: const Text("Dashboard"),
         elevation: 0,
         // backgroundColor: Colors.tealAccent,
         actions: [
@@ -236,7 +214,7 @@ class _DashBoardState extends State<DashBoard> {
                   border: InputBorder.none,
                   fillColor: Colors.white,
                 ),
-                value: _sort_val,
+                value: _sortVal,
                 items: List.generate(
                   _sort_words.length,
                   (index) => DropdownMenuItem(
@@ -248,7 +226,7 @@ class _DashBoardState extends State<DashBoard> {
                 ),
                 onChanged: (int? v) => setState(
                   () {
-                    _sort_val = v as int;
+                    _sortVal = v as int;
                   },
                 ),
               ),
@@ -272,6 +250,12 @@ class _DashBoardState extends State<DashBoard> {
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const CircularProgressIndicator();
+                      }
+                      if (!snapshot.hasData) {
+                        return Text(
+                          "Business Name..",
+                          textAlign: TextAlign.center,
+                        );
                       }
                       return Text(
                         snapshot.data!.name!.toUpperCase(),
@@ -315,13 +299,19 @@ class _DashBoardState extends State<DashBoard> {
                   crossAxisCount:
                       MediaQuery.of(context).size.width > 480 ? 4 : 2,
                   children: [
-                    InventoryItemsSummaryCard(),
-                    TransactionsSummaryCard(),
-                    SalesSummaryCard(),
-                    DebtSummaryCard(),
+                    const InventoryItemsSummaryCard(),
+                    TransactionsSummaryCard(
+                      filterValue: _sortVal,
+                    ),
+                    SalesSummaryCard(
+                      filterValue: _sortVal,
+                    ),
+                    DebtSummaryCard(
+                      filterValue: _sortVal,
+                    ),
                   ]
                       .map((e) => Card(
-                            shape: RoundedRectangleBorder(),
+                            shape: const RoundedRectangleBorder(),
                             child: e,
                           ))
                       .toList(),
@@ -348,22 +338,21 @@ class _DashBoardState extends State<DashBoard> {
                             return Container();
                           }
 
-                          var transactions = snapshot.data!.map(
+                          var transactions = snapshot.data!.where(
                             (e) {
                               String date = e.date!;
                               DateTime dt = DateTime.parse(date);
-
-                              if (_sort_val == 1) {
-                                if (dt.month == DateTime.now().month) {
-                                  return e;
-                                }
+                              switch (_sortVal) {
+                                case 1:
+                                  return dt == DateTime.now();
+                                case 2:
+                                  return dt.month == DateTime.now().month &&
+                                      dt.year == DateTime.now().year;
+                                case 3:
+                                  return dt.year == DateTime.now().year;
+                                default:
+                                  return true;
                               }
-                              if (_sort_val == 2) {
-                                if (dt.year == DateTime.now().year) {
-                                  return e;
-                                }
-                              }
-                              return e;
                             },
                           );
 
@@ -429,6 +418,24 @@ class _DashBoardState extends State<DashBoard> {
                             );
                           }
 
+                          var transactions = snapshot.data!.where(
+                            (e) {
+                              String date = e.date!;
+                              DateTime dt = DateTime.parse(date);
+                              switch (_sortVal) {
+                                case 1:
+                                  return dt == DateTime.now();
+                                case 2:
+                                  return dt.month == DateTime.now().month &&
+                                      dt.year == DateTime.now().year;
+                                case 3:
+                                  return dt.year == DateTime.now().year;
+                                default:
+                                  return true;
+                              }
+                            },
+                          ).toList();
+
                           return SizedBox(
                             width: double.maxFinite,
                             child: SingleChildScrollView(
@@ -454,7 +461,9 @@ class _DashBoardState extends State<DashBoard> {
                                     DataColumn(label: Text('Date')),
                                     DataColumn(label: Text('Total Amount')),
                                   ],
-                                  rows: snapshot.data!
+                                  rows: transactions
+                                      .sublist(
+                                          0, transactions.length > 5 ? 5 : null)
                                       .map(
                                         (e) => DataRow(
                                           cells: [
@@ -494,7 +503,9 @@ class _DashBoardState extends State<DashBoard> {
 }
 
 class DebtSummaryCard extends StatelessWidget {
+  final int filterValue;
   const DebtSummaryCard({
+    this.filterValue = 0,
     Key? key,
   }) : super(key: key);
 
@@ -510,7 +521,22 @@ class DebtSummaryCard extends StatelessWidget {
               );
             }
 
-            double debts = (snapshot.data ?? []).fold(
+            var filteredData = snapshot.data!.where((e) {
+              DateTime dt = DateTime.parse(e.date!);
+              switch (filterValue) {
+                case 1:
+                  return dt == DateTime.now();
+                case 2:
+                  return dt.month == DateTime.now().month &&
+                      dt.year == DateTime.now().year;
+                case 3:
+                  return dt.year == DateTime.now().year;
+                default:
+                  return true;
+              }
+            }).toList();
+
+            double debts = (filteredData).fold(
                 0, (previousValue, element) => previousValue + element.balance);
 
             return Column(
@@ -541,7 +567,9 @@ class DebtSummaryCard extends StatelessWidget {
 }
 
 class SalesSummaryCard extends StatelessWidget {
+  final int filterValue;
   const SalesSummaryCard({
+    this.filterValue = 0,
     Key? key,
   }) : super(key: key);
 
@@ -557,7 +585,22 @@ class SalesSummaryCard extends StatelessWidget {
               );
             }
 
-            double transactionSum = (snapshot.data ?? []).fold(
+            var filteredData = snapshot.data!.where((e) {
+              DateTime dt = DateTime.parse(e.date!);
+              switch (filterValue) {
+                case 1:
+                  return dt == DateTime.now();
+                case 2:
+                  return dt.month == DateTime.now().month &&
+                      dt.year == DateTime.now().year;
+                case 3:
+                  return dt.year == DateTime.now().year;
+                default:
+                  return true;
+              }
+            }).toList();
+
+            double transactionSum = (filteredData).fold(
                 0, (previousValue, element) => previousValue + element.amount);
 
             return Column(
@@ -588,7 +631,9 @@ class SalesSummaryCard extends StatelessWidget {
 }
 
 class TransactionsSummaryCard extends StatelessWidget {
+  final int filterValue;
   const TransactionsSummaryCard({
+    this.filterValue = 0,
     Key? key,
   }) : super(key: key);
 
@@ -604,7 +649,22 @@ class TransactionsSummaryCard extends StatelessWidget {
               );
             }
 
-            int count = (snapshot.data ?? []).length;
+            var filteredData = snapshot.data!.where((e) {
+              DateTime dt = DateTime.parse(e.date!);
+              switch (filterValue) {
+                case 1:
+                  return dt == DateTime.now();
+                case 2:
+                  return dt.month == DateTime.now().month &&
+                      dt.year == DateTime.now().year;
+                case 3:
+                  return dt.year == DateTime.now().year;
+                default:
+                  return true;
+              }
+            }).toList();
+
+            int count = (filteredData).length;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.center,

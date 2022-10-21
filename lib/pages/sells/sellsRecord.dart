@@ -167,9 +167,9 @@ class _SellsPageState extends State<SellsPage> {
               ],
             ),
           ),
-          SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: FutureBuilder<List<Transaction>?>(
+          Flexible(
+            child: SingleChildScrollView(
+              child: FutureBuilder<List<Transaction>?>(
                 future: context.watch<TransactionsProvider>().getTransactions(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -196,7 +196,9 @@ class _SellsPageState extends State<SellsPage> {
                   return SellsRecord(
                     data: snapshot.data!,
                   );
-                }),
+                },
+              ),
+            ),
           ),
         ],
       ),
@@ -218,69 +220,67 @@ class _SellsRecordState extends State<SellsRecord> {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: SingleChildScrollView(
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-                minWidth: MediaQuery.of(context).size.width - 100),
-            child: DataTable(
-              headingTextStyle: const TextStyle(
-                color: Colors.teal,
-                fontWeight: FontWeight.w600,
-                fontSize: 18.0,
-              ),
-              dataTextStyle: const TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.w500,
-                fontSize: 16.0,
-              ),
-              columns: const [
-                DataColumn(label: Text('ID')),
-                DataColumn(label: Text('Name')),
-                DataColumn(label: Text('Amount')),
-                DataColumn(label: Text('Date')),
-                DataColumn(label: Text('ACTIONS')),
-              ],
-              rows: widget.data
-                  .map(
-                    (e) => DataRow(
-                      cells: [
-                        DataCell(Text(
-                          "#${e.id.toString().padLeft(5, "0")}",
-                          textAlign: TextAlign.center,
-                        )),
-                        DataCell(Text(
-                          e.customerName,
-                          textAlign: TextAlign.center,
-                        )),
-                        DataCell(Text(
-                          e.amount.toString(),
-                          textAlign: TextAlign.center,
-                        )),
-                        DataCell(Text(
-                          DateFormat("d/M/y").format(
-                            DateTime.parse(e.date!),
-                          ),
-                          textAlign: TextAlign.center,
-                        )),
-                        DataCell(
-                          MaterialButton(
-                            color: Colors.teal,
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => SellsDetails(
-                                  transaction: e,
-                                ),
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints:
+              BoxConstraints(minWidth: MediaQuery.of(context).size.width - 100),
+          child: DataTable(
+            headingTextStyle: const TextStyle(
+              color: Colors.teal,
+              // fontWeight: FontWeight.w600,
+              // fontSize: 18.0,
+            ),
+            // dataTextStyle: const TextStyle(
+            //   color: Colors.black,
+            //   fontWeight: FontWeight.w500,
+            //   fontSize: 16.0,
+            // ),
+            columns: const [
+              DataColumn(label: Text('ID')),
+              DataColumn(label: Text('Name')),
+              DataColumn(label: Text('Amount')),
+              DataColumn(label: Text('Date')),
+              DataColumn(label: Text('ACTIONS')),
+            ],
+            rows: widget.data
+                .map(
+                  (e) => DataRow(
+                    cells: [
+                      DataCell(Text(
+                        "#${e.id.toString().padLeft(5, "0")}",
+                        textAlign: TextAlign.center,
+                      )),
+                      DataCell(Text(
+                        e.customerName,
+                        textAlign: TextAlign.center,
+                      )),
+                      DataCell(Text(
+                        e.amount.toString(),
+                        textAlign: TextAlign.center,
+                      )),
+                      DataCell(Text(
+                        DateFormat("d/M/y").format(
+                          DateTime.parse(e.date!),
+                        ),
+                        textAlign: TextAlign.center,
+                      )),
+                      DataCell(
+                        MaterialButton(
+                          color: Colors.teal,
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => SellsDetails(
+                                transaction: e,
                               ),
                             ),
-                            child: Text("VIEW"),
                           ),
+                          child: Text("VIEW"),
                         ),
-                      ],
-                    ),
-                  )
-                  .toList(),
-            ),
+                      ),
+                    ],
+                  ),
+                )
+                .toList(),
           ),
         ),
       ),

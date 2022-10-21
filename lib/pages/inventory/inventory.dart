@@ -226,11 +226,8 @@ class _InventoryPageState extends State<InventoryPage> {
                       );
                     }
 
-                    return Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: InventoryTable(
-                        data: snapshot.data!,
-                      ),
+                    return InventoryTable(
+                      data: snapshot.data!,
                     );
                   },
                 ),
@@ -257,92 +254,88 @@ class _InventoryTableState extends State<InventoryTable> {
     var data = widget.data;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints:
-            BoxConstraints(minWidth: MediaQuery.of(context).size.width - 100),
-        child: DataTable(
-          columnSpacing: 40.0,
-          sortColumnIndex: 1,
-          headingTextStyle: TextStyle(
-            color: Colors.teal,
-            fontWeight: FontWeight.w600,
-            fontSize: MediaQuery.of(context).size.width > 480 ? 18.0 : 16.0,
-          ),
-          dataTextStyle: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w500,
-            fontSize: MediaQuery.of(context).size.width > 480 ? 20.0 : 16.0,
-          ),
-          columns: const [
-            DataColumn(
-              label: Text('Name'),
-            ),
-            DataColumn(
-              label: Text('Description'),
-            ),
-            DataColumn(
-              label: Text('Price'),
-            ),
-            DataColumn(
-              label: Text('Available'),
-            ),
-            DataColumn(
-              label: Text('Actions'),
-            ),
-          ],
-          rows: List.generate(
-            data.length,
-            (index) => DataRow(
-              cells: [
-                DataCell(
-                  Text(
-                    data[index].name,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                DataCell(
-                  Text(
-                    data[index].description,
-                  ),
-                ),
-                DataCell(
-                  Text(
-                    data[index].price.toString(),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                DataCell(
-                  Text(
-                    data[index].availableQuantity.toString(),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                DataCell(
-                  PopupMenuButton(
-                    itemBuilder: (context) {
-                      return const [
-                        PopupMenuItem<int>(value: 0, child: Text('Edit')),
-                      ];
-                    },
-                    onSelected: (item) async {
-                      switch (item) {
-                        case 0:
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => NewInventoryPage(
-                                data: data[index],
-                              ),
-                            ),
-                          );
-                          break;
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ).toList(),
+      child: DataTable(
+        columnSpacing: 40.0,
+        sortColumnIndex: 1,
+        headingTextStyle: TextStyle(
+          color: Colors.teal,
+          // fontWeight: FontWeight.w600,
+          // fontSize: MediaQuery.of(context).size.width > 480 ? 18.0 : 16.0,
         ),
+        // dataTextStyle: TextStyle(
+        //   color: Colors.black,
+        //   fontWeight: FontWeight.w500,
+        //   fontSize: MediaQuery.of(context).size.width > 480 ? 20.0 : 16.0,
+        // ),
+        columns: const [
+          DataColumn(
+            label: Text('Name'),
+          ),
+          // DataColumn(
+          //   label: Text('Description'),
+          // ),
+          DataColumn(
+            label: Text('Price'),
+          ),
+          DataColumn(
+            label: Text('Available'),
+          ),
+          DataColumn(
+            label: Text('Actions'),
+          ),
+        ],
+        rows: List.generate(
+          data.length,
+          (index) => DataRow(
+            cells: [
+              DataCell(
+                Text(
+                  data[index].name,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              // DataCell(
+              //   Text(
+              //     data[index].description,
+              //   ),
+              // ),
+              DataCell(
+                Text(
+                  data[index].price.toString(),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              DataCell(
+                Text(
+                  data[index].availableQuantity.toString(),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              DataCell(
+                PopupMenuButton(
+                  itemBuilder: (context) {
+                    return const [
+                      PopupMenuItem<int>(value: 0, child: Text('Edit')),
+                    ];
+                  },
+                  onSelected: (item) async {
+                    switch (item) {
+                      case 0:
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => NewInventoryPage(
+                              data: data[index],
+                            ),
+                          ),
+                        );
+                        break;
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ).toList(),
       ),
     );
   }
