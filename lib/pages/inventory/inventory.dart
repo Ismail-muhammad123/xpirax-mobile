@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:xpirax/data/inventory.dart';
 import 'package:xpirax/pages/inventory/newInventory.dart';
 import 'package:xpirax/providers/web_database_providers.dart';
+
+import '../../providers/database/dataBase_manager.dart';
 
 class InventoryPage extends StatefulWidget {
   const InventoryPage({Key? key}) : super(key: key);
@@ -16,10 +19,10 @@ class _InventoryPageState extends State<InventoryPage> {
   final TextEditingController _searchController = TextEditingController();
 
   Future<List<Inventory>> _searchInventory() async => await context
-      .read<InventoryProvider>()
-      .getItems()
+      .read<LocalDatabaseHandler>()
+      .getItemsFromInventory()
       .then(
-        (value) => value!
+        (value) => value
             .where((element) => element.name.contains(_searchController.text))
             .toList(),
       );
@@ -37,17 +40,17 @@ class _InventoryPageState extends State<InventoryPage> {
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          FloatingActionButton(
-            heroTag: 'reload',
-            tooltip: 'Reload inventory items',
-            elevation: 20.0,
-            onPressed: () => setState(() {}),
-            child: const Icon(
-              Icons.replay_outlined,
-              size: 40.0,
-            ),
-          ),
-          Padding(padding: EdgeInsets.all(12)),
+          // FloatingActionButton(
+          //   heroTag: 'reload',
+          //   tooltip: 'Reload inventory items',
+          //   elevation: 20.0,
+          //   onPressed: () => setState(() {}),
+          //   child: const Icon(
+          //     Icons.replay_outlined,
+          //     size: 40.0,
+          //   ),
+          // ),
+          // Padding(padding: EdgeInsets.all(12)),
           FloatingActionButton(
             heroTag: 'new',
             tooltip: 'Add new item to inventory',
@@ -113,55 +116,36 @@ class _InventoryPageState extends State<InventoryPage> {
                                   builder: (context, snapshot) {
                                     if (snapshot.connectionState !=
                                         ConnectionState.waiting) {
-                                      if (snapshot.data!.isNotEmpty) {
-                                        return SizedBox(
-                                          width: MediaQuery.of(context)
-                                                      .size
-                                                      .width >
-                                                  600
-                                              ? MediaQuery.of(context)
-                                                      .size
-                                                      .width *
-                                                  0.9
-                                              : double.maxFinite,
-                                          child: Card(
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.all(12.0),
-                                              child: SizedBox(
-                                                width: double.maxFinite,
-                                                child: InventoryTable(
-                                                  data: snapshot.data!,
-                                                ),
-                                              ),
-                                            ),
-                                            elevation: 5.0,
-                                          ),
-                                        );
-                                      }
-
-                                      if (snapshot.data!.isEmpty) {
-                                        return Container(
-                                          height: MediaQuery.of(context)
-                                                  .size
-                                                  .height *
-                                              0.7,
-                                          color: Colors.tealAccent
-                                              .withOpacity(0.3),
-                                          child: const Center(
-                                            child: Text('No Item Found'),
-                                          ),
-                                        );
-                                      }
+                                      return Container(
+                                        color:
+                                            Colors.tealAccent.withOpacity(0.3),
+                                        child: const Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      );
                                     }
 
-                                    return Container(
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                              0.7,
-                                      color: Colors.tealAccent.withOpacity(0.3),
-                                      child: const Center(
-                                        child: CircularProgressIndicator(),
+                                    if (snapshot.data!.isEmpty ||
+                                        snapshot.data == null) {
+                                      return Container(
+                                        height:
+                                            MediaQuery.of(context).size.height *
+                                                0.7,
+                                        color:
+                                            Colors.tealAccent.withOpacity(0.3),
+                                        child: const Center(
+                                          child: Text('No Item Found'),
+                                        ),
+                                      );
+                                    }
+
+                                    return SizedBox(
+                                      width: double.maxFinite,
+                                      child: SizedBox(
+                                        width: double.maxFinite,
+                                        child: InventoryTable(
+                                          data: snapshot.data!,
+                                        ),
                                       ),
                                     );
                                   },
@@ -202,7 +186,9 @@ class _InventoryPageState extends State<InventoryPage> {
               child: SingleChildScrollView(
                 scrollDirection: Axis.vertical,
                 child: FutureBuilder<List<Inventory>?>(
-                  future: context.watch<InventoryProvider>().getItems(),
+                  future: context
+                      .watch<LocalDatabaseHandler>()
+                      .getItemsFromInventory(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(
@@ -211,15 +197,29 @@ class _InventoryPageState extends State<InventoryPage> {
                     }
 
                     if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const SizedBox(
+                      return SizedBox(
                         height: 500,
                         child: Padding(
                           padding: EdgeInsets.all(8.0),
                           child: Center(
-                            child: Text(
-                              'Your Inventory is Empty!',
-                              style: TextStyle(fontSize: 18.0),
-                              softWrap: true,
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Your Inventory is Empty!',
+                                  style: TextStyle(fontSize: 18.0),
+                                  softWrap: true,
+                                ),
+                                MaterialButton(
+                                  onPressed: () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const NewInventoryPage(),
+                                    ),
+                                  ),
+                                  color: Colors.teal,
+                                  child: Text("Add"),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -259,21 +259,11 @@ class _InventoryTableState extends State<InventoryTable> {
         sortColumnIndex: 1,
         headingTextStyle: TextStyle(
           color: Colors.teal,
-          // fontWeight: FontWeight.w600,
-          // fontSize: MediaQuery.of(context).size.width > 480 ? 18.0 : 16.0,
         ),
-        // dataTextStyle: TextStyle(
-        //   color: Colors.black,
-        //   fontWeight: FontWeight.w500,
-        //   fontSize: MediaQuery.of(context).size.width > 480 ? 20.0 : 16.0,
-        // ),
         columns: const [
           DataColumn(
             label: Text('Name'),
           ),
-          // DataColumn(
-          //   label: Text('Description'),
-          // ),
           DataColumn(
             label: Text('Price'),
           ),
@@ -294,20 +284,16 @@ class _InventoryTableState extends State<InventoryTable> {
                   textAlign: TextAlign.center,
                 ),
               ),
-              // DataCell(
-              //   Text(
-              //     data[index].description,
-              //   ),
-              // ),
               DataCell(
                 Text(
-                  data[index].price.toString(),
+                  NumberFormat('###,###,###').format(data[index].price),
                   textAlign: TextAlign.center,
                 ),
               ),
               DataCell(
                 Text(
-                  data[index].availableQuantity.toString(),
+                  NumberFormat('###,###,###')
+                      .format(data[index].availableQuantity),
                   textAlign: TextAlign.center,
                 ),
               ),

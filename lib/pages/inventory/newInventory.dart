@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:xpirax/data/cart_data.dart';
-import 'package:xpirax/data/database.dart';
 import 'package:xpirax/data/inventory.dart';
 import 'package:xpirax/pages/sells/sellsDetails.dart';
 import 'package:uuid/uuid.dart';
+import 'package:xpirax/providers/database/dataBase_manager.dart';
 import 'package:xpirax/providers/web_database_providers.dart';
 
 class NewInventoryPage extends StatefulWidget {
@@ -29,13 +29,11 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
   final uuid = const Uuid();
 
   _updateTotalAmount() {
-    var pric =
-        _priceController.text.isNotEmpty ? _priceController.value.text : '0';
-    var quant = _quantityController.text.isNotEmpty
-        ? _quantityController.value.text
-        : '0';
+    var pric = _priceController.text.isNotEmpty ? _priceController.text : '0';
+    var quant =
+        _quantityController.text.isNotEmpty ? _quantityController.text : '0';
     _totalAmountController.text =
-        (double.parse(quant) * int.parse(pric)).toString();
+        (double.parse(quant) * double.parse(pric)).toString();
   }
 
   _quantityCanged(String char) {
@@ -61,11 +59,17 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
     if (_nameController.value.text.isNotEmpty &&
         _priceController.value.text.isNotEmpty) {
       var item = Inventory(
+        uid: const Uuid().v4(),
         description: _descriptionController.text,
         name: _nameController.value.text,
         availableQuantity: int.parse(_quantityController.value.text),
         price: double.parse(_priceController.value.text),
       );
+      _nameController.clear();
+      _priceController.clear();
+      _totalAmountController.clear();
+      _descriptionController.clear();
+      _quantityController.clear();
       setState(() {
         itemsAdded.add(item);
       });
@@ -76,12 +80,14 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
     if (itemsAdded.isNotEmpty) {
       setState(() => saving = true);
       context
-          .read<InventoryProvider>()
-          .insert(itemsAdded)
+          .read<LocalDatabaseHandler>()
+          .insertItemsToInventory(itemsAdded)
           .then((value) => setState(() => saving = false))
-          .then((value) {
-        Navigator.of(context).pop();
-      });
+          .then(
+        (value) {
+          Navigator.of(context).pop();
+        },
+      );
     }
   }
 
@@ -93,19 +99,21 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
         _priceController.value.text.isNotEmpty) {
       setState(() => saving = true);
       Inventory obj = Inventory(
-        id: widget.data!.id,
+        uid: widget.data!.uid,
         name: _nameController.value.text,
         description: _descriptionController.text,
         availableQuantity: int.parse(_quantityController.value.text),
         price: double.parse(_priceController.value.text),
       );
       context
-          .read<InventoryProvider>()
-          .updateInventory(obj)
+          .read<LocalDatabaseHandler>()
+          .updateInventoryItem(obj)
           .then((value) => setState(() => saving = false))
-          .then((value) {
-        Navigator.of(context).pop();
-      });
+          .then(
+        (value) {
+          Navigator.of(context).pop();
+        },
+      );
     }
   }
 
@@ -310,7 +318,7 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
                                     case 0:
                                       setState(() {
                                         itemsAdded.removeWhere(
-                                            (element) => element.id == e.id);
+                                            (element) => element.uid == e.uid);
                                       });
                                       break;
                                     case 1:
@@ -318,9 +326,13 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
                                         () {
                                           _priceController.text =
                                               e.price.toString();
+                                          _descriptionController.text =
+                                              e.description;
                                           _nameController.text = e.name;
                                           _quantityController.text =
                                               e.availableQuantity.toString();
+                                          itemsAdded.removeWhere(
+                                              (element) => element == e);
                                         },
                                       );
                                       break;

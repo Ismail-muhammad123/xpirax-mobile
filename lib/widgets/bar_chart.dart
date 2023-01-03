@@ -4,10 +4,10 @@ import 'package:xpirax/data/cart_data.dart';
 
 import '../data/summary_data.dart';
 
-class SummaryChart extends StatelessWidget {
+class BarChartWidget extends StatelessWidget {
   final List<SummaryDataItem> data;
   final String heading;
-  const SummaryChart({
+  const BarChartWidget({
     Key? key,
     required this.data,
     required this.heading,

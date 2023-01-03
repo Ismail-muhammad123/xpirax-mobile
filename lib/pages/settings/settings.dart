@@ -16,181 +16,216 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Profile"),
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: () async {
-              await launchUrl(Uri.parse("https://xpirax.com")).then((value) {
-                if (value == false) {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: Text(
-                        "Error".toUpperCase(),
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                      content: const Text(
-                          "Unable to complete this action, visit our website at www.xpirax.com for more information"),
-                      actions: [
-                        MaterialButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          color: Colors.teal,
-                          child: const Text("OK"),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-              });
-            },
-            icon: const Icon(Icons.edit),
-          )
-        ],
-      ),
+      // appBar: AppBar(
+      //   centerTitle: true,
+      //   title: const Text("Profile"),
+      //   elevation: 0,
+      // ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            children: [
-              Card(
-                elevation: 8.0,
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16.0),
-                      width: double.maxFinite,
-                      alignment: Alignment.center,
-                      color: Colors.tealAccent,
-                      child: Text(
-                        "Account Information".toUpperCase(),
+        child: Column(
+          children: [
+            Container(
+              height: 300.0,
+              width: double.maxFinite,
+              color: Colors.tealAccent,
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.all(12.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Container(
+                        height: 100,
+                        width: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(50),
+                        ),
+                        child: const Icon(
+                          Icons.person,
+                          size: 50.0,
+                          color: Colors.teal,
+                        ),
+                      ),
+                      Text(
+                        "My Profile".toUpperCase(),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 20.0,
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: FutureBuilder<Business?>(
-                        future: context
-                            .watch<Authentication>()
-                            .getBusinessDetails(),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          }
-                          if (!snapshot.hasData ||
-                              snapshot.data!.name!.isEmpty) {
-                            return Text("No Name");
-                          }
-                          return Column(
-                            children: [
-                              Image.network(
-                                snapshot.data!.logo!,
-                                height: 150,
-                                width: 150,
-                              ),
-                              Text(
-                                snapshot.data!.name!.toUpperCase(),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.teal,
-                                  fontSize: 30,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              Text(
-                                snapshot.data!.address!,
-                                style: TextStyle(
-                                  fontSize: 20,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              Card(
-                elevation: 8.0,
-                child: Column(
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                padding: EdgeInsets.all(12.0),
+                height: 120,
+                width: double.maxFinite,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.4),
+                      offset: Offset(6, 6),
+                      blurRadius: 8.0,
+                    )
+                  ],
+                ),
+                child: Row(
                   children: [
-                    Container(
-                      padding: EdgeInsets.all(16.0),
-                      alignment: Alignment.center,
-                      width: double.maxFinite,
-                      color: Colors.tealAccent,
-                      child: Text(
-                        "User Information".toUpperCase(),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20.0,
-                        ),
-                      ),
+                    Icon(
+                      Icons.business,
+                      color: Colors.teal,
+                      size: 50,
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: FutureBuilder<User?>(
-                        future:
-                            context.watch<Authentication>().getUserDetails(),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          }
-                          if (!snapshot.hasData ||
-                              snapshot.data!.fullName.isEmpty) {
-                            return Text("No Name");
-                          }
-                          return Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text(
-                                  snapshot.data!.fullName.toUpperCase(),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Text(
+                              "Business Name",
+                              style: TextStyle(
+                                fontSize: 20.0,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            FutureBuilder<String>(
+                              future: context
+                                  .watch<Authentication>()
+                                  .getOfflineBusinessName(),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return Text(
+                                    "...",
+                                    style: TextStyle(
+                                      fontSize: 16.0,
+                                    ),
+                                  );
+                                }
+                                return Text(
+                                  snapshot.data ?? "",
                                   style: TextStyle(
-                                    color: Colors.teal,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16.0,
                                   ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text(
-                                  snapshot.data!.email,
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text(
-                                  snapshot.data!.mobileNumber,
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text(
-                                  "Role: ${snapshot.data!.isOwner ? 'Owner' : 'staff'}",
-                                ),
-                              ),
-                            ],
-                          );
-                        },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () async {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const OfflineBusinessNameForm(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.edit,
+                        size: 30,
+                        color: Colors.teal,
                       ),
                     ),
                   ],
                 ),
               ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class OfflineBusinessNameForm extends StatefulWidget {
+  const OfflineBusinessNameForm({
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  State<OfflineBusinessNameForm> createState() =>
+      OfflineBusinessNameFormState();
+}
+
+class OfflineBusinessNameFormState extends State<OfflineBusinessNameForm> {
+  final TextEditingController _nameController = TextEditingController();
+
+  @override
+  void initState() {
+    context.read<Authentication>().getOfflineBusinessName().then(
+          (value) => setState(() => _nameController.text = value),
+        );
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Update Business Name"),
+      ),
+      body: Center(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: 200.0,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.4),
+                offset: const Offset(4, 4),
+                blurRadius: 8.0,
+              )
             ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8.0),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10.0),
+                    border: Border.all(color: Colors.teal),
+                  ),
+                  child: TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      hintMaxLines: 5,
+                      hintText: "Enter business Name",
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                MaterialButton(
+                  onPressed: () {
+                    if (_nameController.text.isNotEmpty) {
+                      context
+                          .read<Authentication>()
+                          .setOfflineBusinessName(_nameController.text)
+                          .then((value) => Navigator.of(context).pop());
+                    }
+                  },
+                  color: Colors.teal,
+                  child: const Text("Save"),
+                ),
+              ],
+            ),
           ),
         ),
       ),

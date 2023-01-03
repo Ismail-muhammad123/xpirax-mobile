@@ -1,21 +1,20 @@
 class Transaction {
-  int? id;
+  String uid;
   String customerName;
-  String address;
   String phoneNumber;
   String email;
+  String address;
   double amount;
   double amountPaid;
   double discount;
   double balance;
   String? date;
-  int? business;
-  int? soldBy;
-  List<Items>? items;
+  bool isSynced;
+  List<Item>? items;
 
   Transaction({
-    this.id,
     required this.customerName,
+    required this.uid,
     required this.address,
     required this.phoneNumber,
     required this.email,
@@ -24,14 +23,13 @@ class Transaction {
     required this.discount,
     required this.balance,
     required this.date,
-    this.business,
-    this.soldBy,
+    this.isSynced = false,
     required this.items,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
     return Transaction(
-      id: json["id"],
+      uid: json["uid"],
       customerName: json["customerName"],
       address: json["address"],
       phoneNumber: json["phoneNumber"],
@@ -41,15 +39,13 @@ class Transaction {
       discount: json["discount"],
       balance: json["balance"],
       date: json["date"],
-      business: json["business"],
-      soldBy: json["sold_by"],
-      items: (json['items'] as List).map((e) => Items.fromJson(e)).toList(),
+      items: (json['items'] as List).map((e) => Item.fromJson(e)).toList(),
+      isSynced: json['isSynced'] == 1,
     );
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
-    data["id"] = id;
     data["customerName"] = customerName;
     data["address"] = address;
     data["phoneNumber"] = phoneNumber;
@@ -59,8 +55,7 @@ class Transaction {
     data["discount"] = discount;
     data["balance"] = balance;
     data["date"] = date;
-    data["business"] = business;
-    data["sold_by"] = soldBy;
+    data['isSynced'] = isSynced ? 1 : 0;
     if (items != null) {
       data["items"] = items!.map((e) => e.toJson()).toList();
     }
@@ -68,42 +63,54 @@ class Transaction {
   }
 }
 
-class Items {
-  int? id;
-  int item;
-  String itemName;
+class Item {
+  String uid;
+  String productUID;
+  String transactionUID;
+  String name;
   double price;
   int quantity;
-  int? transaction;
+  double amount;
+  String date;
+  bool isSynced;
 
-  Items({
-    this.id,
-    required this.item,
-    required this.itemName,
+  Item({
+    required this.uid,
+    required this.productUID,
+    required this.transactionUID,
+    required this.name,
     required this.price,
     required this.quantity,
-    this.transaction,
+    required this.date,
+    required this.amount,
+    this.isSynced = false,
   });
 
-  factory Items.fromJson(Map<String, dynamic> json) {
-    return Items(
-      id: json["id"],
-      item: json["item"],
-      itemName: json["item_name"],
+  factory Item.fromJson(Map<String, dynamic> json) {
+    return Item(
+      uid: json["uid"],
+      productUID: json["productUID"],
+      name: json["name"],
       price: json["price"],
       quantity: json["quantity"],
-      transaction: json["transaction"],
+      transactionUID: json["transactionUID"],
+      date: json['date'],
+      amount: json['amount'],
+      isSynced: json['isSynced'] == 1,
     );
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
-    data["id"] = id;
-    data["item"] = item;
-    data["item_name"] = itemName;
+    data["uid"] = uid;
+    data["productUID"] = productUID;
+    data["name"] = name;
     data["price"] = price;
     data["quantity"] = quantity;
-    data["transaction"] = transaction;
+    data["transactionUID"] = transactionUID;
+    data["amount"] = amount;
+    data["date"] = date;
+    data['isSynced'] = isSynced ? 1 : 0;
     return data;
   }
 }

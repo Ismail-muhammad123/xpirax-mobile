@@ -69,13 +69,13 @@ class TransactionsProvider extends ChangeNotifier {
     // loop through the transactions and create a sorted list of Maps containing
     // sold items, quantity nd the date of the transaction
     for (Transaction transaction in transactions) {
-      for (Items item in transaction.items!) {
-        result.any((element) => element.containsKey(item.itemName))
-            ? result.firstWhere((element) =>
-                    element.containsKey(item.itemName))[item.itemName] +=
+      for (Item item in transaction.items!) {
+        result.any((element) => element.containsKey(item.name))
+            ? result.firstWhere(
+                    (element) => element.containsKey(item.name))[item.name] +=
                 item.quantity
             : result.add({
-                "name": item.itemName,
+                "name": item.name,
                 "quantity": item.quantity,
                 "date": transaction.date,
               });
@@ -140,7 +140,7 @@ class InventoryProvider extends ChangeNotifier {
 
     try {
       var res = await put(
-        Uri.parse('${baseAPIUrl}inventory/details/${obj.id}'),
+        Uri.parse('${baseAPIUrl}inventory/details/${obj.uid}'),
         headers: {
           "Authorization": "Token $token",
           "content-type": "Application/Json",
@@ -161,94 +161,105 @@ class InventoryProvider extends ChangeNotifier {
 }
 
 class Authentication extends ChangeNotifier {
-  Future<bool> isLogedIn() async {
+  Future<String> getOfflineBusinessName() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    var token = prefs.getString("AuthToken") ?? "";
-
-    if (token.isEmpty) {
-      return false;
-    } else {
-      var user = await getUserDetails();
-      return user != null;
-    }
+    return prefs.getString("business-name") ?? "Xpirax Technologies";
   }
 
-  Future<Map<String, dynamic>?> login(String username, String password) async {
-    const String loginUrl = "${baseAPIUrl}login";
-    try {
-      var result = await post(
-        Uri.parse(loginUrl),
-        body: {
-          "username": username,
-          "password": password,
-        },
-      );
-      if (result.statusCode == 200) {
-        var token = jsonDecode(result.body)['token'];
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        prefs.setString("AuthToken", token);
-        notifyListeners();
-        return jsonDecode(result.body);
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  Future logout() async {
+  Future setOfflineBusinessName(String name) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.remove(
-      "AuthToken",
-    );
+    await prefs.setString("business-name", name);
     notifyListeners();
   }
 
-  Future<Business?> getBusinessDetails() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    var token = prefs.getString("AuthToken") ?? "";
-    if (token.isNotEmpty) {
-      try {
-        var result = await get(
-          Uri.parse('${baseAPIUrl}account/business-details'),
-          headers: {
-            "Authorization": "Token $token",
-          },
-        );
-        if (result.statusCode == 200) {
-          return Business.fromJson(jsonDecode(result.body));
-        }
-        return null;
-      } catch (e) {
-        return null;
-      }
-    } else {
-      return null;
-    }
-  }
+  // Future<bool> isLogedIn() async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   var token = prefs.getString("AuthToken") ?? "";
 
-  Future<User?> getUserDetails() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    var token = prefs.getString("AuthToken") ?? "";
-    if (token.isNotEmpty) {
-      try {
-        var result = await get(
-          Uri.parse('${baseAPIUrl}account/user-details'),
-          headers: {
-            "Authorization": "Token $token",
-          },
-        );
-        if (result.statusCode == 200) {
-          return User.fromJson(jsonDecode(result.body));
-        }
-        return null;
-      } catch (e) {
-        return null;
-      }
-    } else {
-      return null;
-    }
-  }
+  //   if (token.isEmpty) {
+  //     return false;
+  //   } else {
+  //     var user = await getUserDetails();
+  //     return user != null;
+  //   }
+  // }
+
+  // Future<Map<String, dynamic>?> login(String username, String password) async {
+  //   const String loginUrl = "${baseAPIUrl}login";
+  //   try {
+  //     var result = await post(
+  //       Uri.parse(loginUrl),
+  //       body: {
+  //         "username": username,
+  //         "password": password,
+  //       },
+  //     );
+  //     if (result.statusCode == 200) {
+  //       var token = jsonDecode(result.body)['token'];
+  //       SharedPreferences prefs = await SharedPreferences.getInstance();
+  //       prefs.setString("AuthToken", token);
+  //       notifyListeners();
+  //       return jsonDecode(result.body);
+  //     }
+  //     return null;
+  //   } catch (e) {
+  //     return null;
+  //   }
+  // }
+
+  // Future logout() async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   prefs.remove(
+  //     "AuthToken",
+  //   );
+  //   notifyListeners();
+  // }
+
+  // Future<Business?> getBusinessDetails() async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   var token = prefs.getString("AuthToken") ?? "";
+  //   if (token.isNotEmpty) {
+  //     try {
+  //       var result = await get(
+  //         Uri.parse('${baseAPIUrl}account/business-details'),
+  //         headers: {
+  //           "Authorization": "Token $token",
+  //         },
+  //       );
+  //       if (result.statusCode == 200) {
+  //         return Business.fromJson(jsonDecode(result.body));
+  //       }
+  //       return null;
+  //     } catch (e) {
+  //       return null;
+  //     }
+  //   } else {
+  //     return Business(name: prefs.getString("business-name") ?? "Xpirax");
+  //   }
+  // }
+
+  // Future<User?> getUserDetails() async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   var token = prefs.getString("AuthToken") ?? "";
+  //   if (token.isNotEmpty) {
+  //     try {
+  //       var result = await get(
+  //         Uri.parse('${baseAPIUrl}account/user-details'),
+  //         headers: {
+  //           "Authorization": "Token $token",
+  //         },
+  //       );
+  //       if (result.statusCode == 200) {
+  //         return User.fromJson(jsonDecode(result.body));
+  //       }
+  //       return null;
+  //     } catch (e) {
+  //       return null;
+  //     }
+  //   } else {
+  //     return null;
+  //   }
+  // }
 }
 
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////

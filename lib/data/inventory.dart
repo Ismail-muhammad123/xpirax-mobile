@@ -1,39 +1,43 @@
 class Inventory {
-  int? id;
+  String uid;
   String name;
   String description;
   double price;
   int availableQuantity;
   String? dataAdded;
+  bool isSynced;
 
   Inventory({
-    this.id,
+    required this.uid,
     required this.name,
     required this.description,
     required this.price,
     required this.availableQuantity,
     this.dataAdded,
+    this.isSynced = false,
   });
 
   factory Inventory.fromJson(Map<String, dynamic> json) {
     return Inventory(
-      id: json["id"],
+      uid: json["uid"],
       name: json["name"],
       description: json["description"],
       price: json["price"],
-      availableQuantity: json["available_quantity"],
-      dataAdded: json["data_added"],
+      availableQuantity: json["availableQuantity"],
+      dataAdded: json["dataAdded"],
+      isSynced: json["isSynced"] == 1,
     );
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
-    data["id"] = id;
     data["name"] = name;
+    data["uid"] = uid;
     data["description"] = description;
     data["price"] = price;
-    data["available_quantity"] = availableQuantity;
-    data["data_added"] = dataAdded;
+    data["availableQuantity"] = availableQuantity;
+    data["dataAdded"] = dataAdded;
+    data['isSynced'] = isSynced ? 1 : 0;
     return data;
   }
 }

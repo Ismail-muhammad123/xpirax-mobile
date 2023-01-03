@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:xpirax/data/cart_data.dart';
 import 'package:xpirax/data/transaction.dart';
-import 'package:xpirax/pages/sells/newSells.dart';
+import 'package:xpirax/pages/sells/transaction_form.dart';
 import 'package:xpirax/pages/sells/sellsDetails.dart';
 import 'package:xpirax/providers/web_database_providers.dart';
 import 'package:provider/provider.dart';
@@ -247,7 +247,7 @@ class _SellsRecordState extends State<SellsRecord> {
                   (e) => DataRow(
                     cells: [
                       DataCell(Text(
-                        "#${e.id.toString().padLeft(5, "0")}",
+                        e.uid.toString(),
                         textAlign: TextAlign.center,
                       )),
                       DataCell(Text(

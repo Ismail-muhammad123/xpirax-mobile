@@ -4,25 +4,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:xpirax/providers/database/dataBase_manager.dart';
 import 'package:xpirax/pages/splashScreen/splashScreen.dart';
 import 'package:xpirax/providers/web_database_providers.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  if (!kIsWeb && (Platform.isMacOS || Platform.isLinux || Platform.isWindows)) {
-    await DesktopWindow.setMinWindowSize(
-      const Size(1200, 600),
-    );
-  }
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
-          create: (_) => InventoryProvider(),
+          create: (_) => LocalDatabaseHandler(),
         ),
-        ChangeNotifierProvider(
-          create: (_) => TransactionsProvider(),
-        ),
+        // ChangeNotifierProvider(
+        //   create: (_) => TransactionsProvider(),
+        // ),
         ChangeNotifierProvider(
           create: (_) => Authentication(),
         ),
@@ -47,7 +42,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       scrollBehavior: MyCustomeScrollBehaviour(),
       debugShowCheckedModeBanner: false,
-      title: 'Xpirax POS',
+      title: 'Xpirax Accounting App',
       theme: ThemeData(
         primaryColor: Colors.tealAccent,
         canvasColor: Colors.white,

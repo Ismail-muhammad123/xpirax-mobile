@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xpirax/data/cart_data.dart';
-import 'package:xpirax/data/database.dart';
 import 'package:xpirax/data/inventory.dart';
 import 'package:xpirax/data/transaction.dart';
 import 'package:xpirax/pages/sells/sellsDetails.dart';
@@ -84,12 +83,12 @@ class NewSellsPage extends StatefulWidget {
 }
 
 class NewSellsPageState extends State<NewSellsPage> {
-  String itemName = '';
+  String name = '';
   List<Inventory> inventoryItems = [];
-  List<Items> addedItems = [];
+  List<Item> addedItems = [];
   bool _saving = false;
 
-  late String _transactionID;
+  String transactionUid = const Uuid().v4();
 
   _getEditabeItems() => setState(() => addedItems = widget.transaction!.items!);
 
@@ -99,7 +98,7 @@ class NewSellsPageState extends State<NewSellsPage> {
     inventoryItems.addAll(widget.inventoryData);
 
     if (inventoryItems.isNotEmpty) {
-      itemName = inventoryItems.first.name;
+      name = inventoryItems.first.name;
       _priceController.text = inventoryItems.first.price.toString();
     }
 
@@ -125,8 +124,6 @@ class NewSellsPageState extends State<NewSellsPage> {
       _amountPaidController.text = "0";
       _discountController.text = '0';
     }
-
-    _transactionID = uid.v4();
   }
 
   // input controllers
@@ -151,7 +148,7 @@ class NewSellsPageState extends State<NewSellsPage> {
   _addItem() {
     if (_quantityController.text.isNotEmpty) {
       var selected =
-          inventoryItems.where((element) => element.name == itemName).first;
+          inventoryItems.where((element) => element.name == name).first;
       if (selected.availableQuantity <
           double.parse(_quantityController.text.trim())) {
         showDialog(
@@ -178,11 +175,18 @@ class NewSellsPageState extends State<NewSellsPage> {
         return;
       }
       try {
-        var obj = Items(
-          item: selected.id!,
-          itemName: selected.name,
+        var obj = Item(
+          uid: const Uuid().v4(),
+          productUID: selected.uid,
+          name: selected.name,
           quantity: int.parse(_quantityController.text),
           price: double.parse(_priceController.text.trim()),
+          transactionUID: widget.transaction != null
+              ? widget.transaction!.uid
+              : transactionUid,
+          amount: double.parse(_priceController.text.trim()) *
+              int.parse(_quantityController.text),
+          date: DateTime.now().toString(),
           // item quantity
         );
 
@@ -207,7 +211,7 @@ class NewSellsPageState extends State<NewSellsPage> {
           );
           return;
         }
-        List<Items> items = [];
+        List<Item> items = [];
         items.add(obj);
         var discount = _discountController.text.isNotEmpty
             ? _discountController.text
@@ -252,8 +256,8 @@ class NewSellsPageState extends State<NewSellsPage> {
   }
 
   _removeItem(String name) {
-    List<Items> items = addedItems;
-    items.removeWhere((element) => element.itemName == name);
+    List<Item> items = addedItems;
+    items.removeWhere((element) => element.name == name);
     double total = 0;
     for (var element in items) {
       total = total + (element.price * element.quantity);
@@ -275,12 +279,13 @@ class NewSellsPageState extends State<NewSellsPage> {
     });
   }
 
-  _editAdded(Items obj) {
-    List<Items> items = addedItems;
-    items.removeWhere((element) => element.id == obj.id);
+  _editAdded(Item obj) {
+    List<Item> items = addedItems;
+    items.removeWhere((element) => element.uid == obj.uid);
     double total = 0;
-    items.forEach(
-        (element) => total = total + (element.price * element.quantity));
+    for (var element in items) {
+      total = total + (element.price * element.quantity);
+    }
     var discount =
         _discountController.text.isNotEmpty ? _discountController.text : '0';
     var paid = _amountPaidController.text.isNotEmpty
@@ -290,7 +295,7 @@ class NewSellsPageState extends State<NewSellsPage> {
       addedItems = items;
       totalAmount = total;
       _equivalentAmount.text = totalAmount.toString();
-      itemName = obj.itemName;
+      name = obj.name;
       _priceController.text = obj.price.toString();
       _quantityController.text = obj.quantity.toString();
       _paymentAmountController.text =
@@ -335,7 +340,7 @@ class NewSellsPageState extends State<NewSellsPage> {
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          content: Text("Atleast One Item Must be added"),
+          content: Text("At least One Item Must be added"),
           actions: [
             MaterialButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -367,6 +372,8 @@ class NewSellsPageState extends State<NewSellsPage> {
     }
 
     Transaction trx = Transaction(
+      uid:
+          widget.transaction == null ? transactionUid : widget.transaction!.uid,
       customerName: _customerNameController.text.trim(),
       address: _addressController.text.trim(),
       phoneNumber: _numberCOntroller.text.trim(),
@@ -382,37 +389,41 @@ class NewSellsPageState extends State<NewSellsPage> {
       _saving = true;
     });
     // insert the created transaction
-    Transaction? res = await context
+    await context
         .read<TransactionsProvider>()
-        .insertTransaction(transaction: trx);
-    setState(
-      () => _saving = false,
-    );
-    if (res == null) {
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          content: Text("Transaction failed"),
-          actions: [
-            MaterialButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text("Okay"),
-              color: Colors.blue,
-            )
-          ],
-        ),
-      );
-      setState(() => addedItems = []);
-      return;
-    } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => SellsDetails(
-            transaction: res,
-          ),
-        ),
-      );
-    }
+        .insertTransaction(transaction: trx)
+        .then(
+          (res) => () async {
+            if (res == null) {
+              await showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  content: Text("Transaction failed"),
+                  actions: [
+                    MaterialButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text("Okay"),
+                      color: Colors.blue,
+                    )
+                  ],
+                ),
+              );
+              setState(() {
+                addedItems = [];
+                _saving = false;
+              });
+              return;
+            } else {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => SellsDetails(
+                    transaction: res,
+                  ),
+                ),
+              );
+            }
+          },
+        );
   }
 
   @override
@@ -462,9 +473,9 @@ class NewSellsPageState extends State<NewSellsPage> {
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: DropdownButtonFormField(
-                      value: itemName,
+                      value: name,
                       onChanged: (value) => setState(() {
-                        itemName = value.toString();
+                        name = value.toString();
                         _priceController.text = inventoryItems
                             .where((element) => element.name == value)
                             .first
@@ -593,7 +604,7 @@ class NewSellsPageState extends State<NewSellsPage> {
                         addedItems.length,
                         (index) => ListTile(
                           title: Text(
-                              "${addedItems[index].itemName} x ${addedItems[index].quantity.toString()}"),
+                              "${addedItems[index].name} x ${addedItems[index].quantity.toString()}"),
                           trailing: PopupMenuButton(
                             itemBuilder: (context) {
                               return const [
@@ -609,7 +620,7 @@ class NewSellsPageState extends State<NewSellsPage> {
                                   _editAdded(addedItems[index]);
                                   break;
                                 case 1:
-                                  _removeItem(addedItems[index].itemName);
+                                  _removeItem(addedItems[index].name);
                                   break;
                               }
                             },

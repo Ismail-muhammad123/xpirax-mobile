@@ -71,7 +71,7 @@ class _SellsDetailsState extends State<SellsDetails> {
     return Scaffold(
         floatingActionButton: FloatingActionButton(
           heroTag: 'Download Reciept',
-          onPressed: () async => _printReciept(widget.transaction.id),
+          onPressed: () async => _printReciept(widget.transaction.uid),
           child: const Icon(Icons.download),
         ),
         appBar: AppBar(
@@ -96,43 +96,37 @@ class _SellsDetailsState extends State<SellsDetails> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        FutureBuilder<String>(
-                          future: context
-                              .read<Authentication>()
-                              .getBusinessDetails()
-                              .then(
-                                (value) => value!.logo ?? "",
-                              ),
-                          builder: (context, snapshot) {
-                            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                              return Container();
-                            }
+                        // FutureBuilder<String>(
+                        //   future: context
+                        //       .read<Authentication>()
+                        //       .getBusinessDetails()
+                        //       .then(
+                        //         (value) => value!.logo ?? "",
+                        //       ),
+                        //   builder: (context, snapshot) {
+                        //     if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        //       return Container();
+                        //     }
 
-                            return Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: snapshot.data!.isNotEmpty
-                                  ? Image.network(
-                                      snapshot.data!,
-                                      height: 100,
-                                      width: 100,
-                                    )
-                                  : Container(),
-                            );
-                          },
-                        ),
+                        //     return Padding(
+                        //       padding: const EdgeInsets.all(8.0),
+                        //       child: snapshot.data!.isNotEmpty
+                        //           ? Image.network(
+                        //               snapshot.data!,
+                        //               height: 100,
+                        //               width: 100,
+                        //             )
+                        //           : Container(),
+                        //     );
+                        //   },
+                        // ),
                         Padding(
                           padding: const EdgeInsets.only(bottom: 2.0, top: 8.0),
                           child: FutureBuilder<String>(
                               future: context
                                   .read<Authentication>()
-                                  .getBusinessDetails()
-                                  .then(
-                                    (value) => value!.name ?? "",
-                                  ),
+                                  .getOfflineBusinessName(),
                               builder: (context, snapshot) {
-                                if (!snapshot.hasData) {
-                                  return const Text("XPIRAX POS");
-                                }
                                 if (snapshot.connectionState ==
                                     ConnectionState.waiting) {
                                   return const CircularProgressIndicator();
@@ -267,7 +261,7 @@ class _SellsDetailsState extends State<SellsDetails> {
                                         (e) => DataRow(
                                           cells: [
                                             DataCell(
-                                              Text(e.itemName),
+                                              Text(e.name),
                                             ),
                                             DataCell(
                                               Text(
@@ -323,7 +317,7 @@ class _SellsDetailsState extends State<SellsDetails> {
                                         SizedBox(
                                           width: 180,
                                           child: Text(
-                                            "#${widget.transaction.id.toString().padLeft(5, "0")}",
+                                            widget.transaction.uid,
                                             textAlign: TextAlign.end,
                                           ),
                                         ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -18,23 +19,16 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   @override
-  void didChangeDependencies() {
-    context.watch<Authentication>().isLogedIn().then(
-      (value) {
-        value == true
-            ? Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => const HomePage(),
-                ),
-              )
-            : Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => LoginPage(),
-                ),
-              );
-      },
+  void initState() {
+    Timer(
+      const Duration(seconds: 2),
+      () => Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const HomePage(),
+        ),
+      ),
     );
-    super.didChangeDependencies();
+    super.initState();
   }
 
   @override
@@ -45,9 +39,8 @@ class _SplashScreenState extends State<SplashScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            
             Text(
-              "Xpirax Point of Sales".toUpperCase(),
+              "Xpirax Accounting App".toUpperCase(),
               style: TextStyle(
                 fontSize: 24,
                 color: Colors.teal,

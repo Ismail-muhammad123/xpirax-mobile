@@ -30,6 +30,7 @@ dependencies:
   filesystem_picker: ^3.1.0
   open_file: ^3.2.1
   intl: ^0.17.0
+  font_awesome_flutter: ^10.3.0
   # window_size:
   #   git:
   #     url: git://github.com/google/flutter-desktop-embedding.git
