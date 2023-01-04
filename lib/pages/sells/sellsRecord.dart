@@ -4,6 +4,7 @@ import 'package:xpirax/data/cart_data.dart';
 import 'package:xpirax/data/transaction.dart';
 import 'package:xpirax/pages/sells/transaction_form.dart';
 import 'package:xpirax/pages/sells/sellsDetails.dart';
+import 'package:xpirax/providers/database/dataBase_manager.dart';
 import 'package:xpirax/providers/web_database_providers.dart';
 import 'package:provider/provider.dart';
 
@@ -18,8 +19,8 @@ class _SellsPageState extends State<SellsPage> {
   final TextEditingController _searchController = TextEditingController();
 
   Future<List<Transaction>> _searchTransactions() async {
-    return await context.read<TransactionsProvider>().getTransactions().then(
-          (value) => value!
+    return await context.read<LocalDatabaseHandler>().getTransactions().then(
+          (value) => value
               .where(
                 (element) => element.customerName.contains(
                   _searchController.text.trim(),
@@ -170,12 +171,14 @@ class _SellsPageState extends State<SellsPage> {
           Flexible(
             child: SingleChildScrollView(
               child: FutureBuilder<List<Transaction>?>(
-                future: context.watch<TransactionsProvider>().getTransactions(),
+                future: context.watch<LocalDatabaseHandler>().getTransactions(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
-                        child: CircularProgressIndicator(
-                            color: Colors.tealAccent));
+                      child: CircularProgressIndicator(
+                        color: Colors.tealAccent,
+                      ),
+                    );
                   }
 
                   if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -217,71 +220,58 @@ class SellsRecord extends StatefulWidget {
 class _SellsRecordState extends State<SellsRecord> {
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints:
-              BoxConstraints(minWidth: MediaQuery.of(context).size.width - 100),
-          child: DataTable(
-            headingTextStyle: const TextStyle(
-              color: Colors.teal,
-              // fontWeight: FontWeight.w600,
-              // fontSize: 18.0,
-            ),
-            // dataTextStyle: const TextStyle(
-            //   color: Colors.black,
-            //   fontWeight: FontWeight.w500,
-            //   fontSize: 16.0,
-            // ),
-            columns: const [
-              DataColumn(label: Text('ID')),
-              DataColumn(label: Text('Name')),
-              DataColumn(label: Text('Amount')),
-              DataColumn(label: Text('Date')),
-              DataColumn(label: Text('ACTIONS')),
-            ],
-            rows: widget.data
-                .map(
-                  (e) => DataRow(
-                    cells: [
-                      DataCell(Text(
-                        e.uid.toString(),
-                        textAlign: TextAlign.center,
-                      )),
-                      DataCell(Text(
-                        e.customerName,
-                        textAlign: TextAlign.center,
-                      )),
-                      DataCell(Text(
-                        e.amount.toString(),
-                        textAlign: TextAlign.center,
-                      )),
-                      DataCell(Text(
-                        DateFormat("d/M/y").format(
-                          DateTime.parse(e.date!),
-                        ),
-                        textAlign: TextAlign.center,
-                      )),
-                      DataCell(
-                        MaterialButton(
-                          color: Colors.teal,
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => SellsDetails(
-                                transaction: e,
-                              ),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: ConstrainedBox(
+        constraints:
+            BoxConstraints(minWidth: MediaQuery.of(context).size.width - 100),
+        child: DataTable(
+          columnSpacing: 16.0,
+          headingTextStyle: const TextStyle(
+            color: Colors.teal,
+            fontWeight: FontWeight.bold,
+          ),
+          columns: const [
+            DataColumn(label: Text('Customer Name')),
+            DataColumn(label: Text('Amount')),
+            DataColumn(label: Text('Date')),
+            DataColumn(label: Text('ACTIONS')),
+          ],
+          rows: widget.data
+              .map(
+                (e) => DataRow(
+                  cells: [
+                    DataCell(Text(
+                      e.customerName,
+                      textAlign: TextAlign.center,
+                    )),
+                    DataCell(Text(
+                      e.amount.toString(),
+                      textAlign: TextAlign.center,
+                    )),
+                    DataCell(Text(
+                      DateFormat("d/M/y").format(
+                        DateTime.parse(e.date!),
+                      ),
+                      textAlign: TextAlign.center,
+                    )),
+                    DataCell(
+                      MaterialButton(
+                        color: Colors.teal,
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => SellsDetails(
+                              transaction: e,
                             ),
                           ),
-                          child: Text("VIEW"),
                         ),
+                        child: const Text("VIEW"),
                       ),
-                    ],
-                  ),
-                )
-                .toList(),
-          ),
+                    ),
+                  ],
+                ),
+              )
+              .toList(),
         ),
       ),
     );

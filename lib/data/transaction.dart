@@ -32,20 +32,23 @@ class Transaction {
       uid: json["uid"],
       customerName: json["customerName"],
       address: json["address"],
-      phoneNumber: json["phoneNumber"],
+      phoneNumber: json["phoneNumber"].toString(),
       email: json["email"],
       amount: json["amount"],
       amountPaid: json["amountPaid"],
       discount: json["discount"],
       balance: json["balance"],
       date: json["date"],
-      items: (json['items'] as List).map((e) => Item.fromJson(e)).toList(),
+      items: json['items'] != null
+          ? (json['items'] as List).map((e) => Item.fromJson(e)).toList()
+          : null,
       isSynced: json['isSynced'] == 1,
     );
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
+    data["uid"] = uid;
     data["customerName"] = customerName;
     data["address"] = address;
     data["phoneNumber"] = phoneNumber;

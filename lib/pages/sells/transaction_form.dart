@@ -4,6 +4,7 @@ import 'package:xpirax/data/cart_data.dart';
 import 'package:xpirax/data/inventory.dart';
 import 'package:xpirax/data/transaction.dart';
 import 'package:xpirax/pages/sells/sellsDetails.dart';
+import 'package:xpirax/providers/database/dataBase_manager.dart';
 import 'package:xpirax/providers/web_database_providers.dart';
 import 'package:uuid/uuid.dart';
 
@@ -28,7 +29,7 @@ class _SellsFormState extends State<SellsForm> {
         title: const Text('New Transaction'),
       ),
       body: FutureBuilder<List<Inventory>?>(
-        future: context.watch<InventoryProvider>().getItems(),
+        future: context.watch<LocalDatabaseHandler>().getItemsFromInventory(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -140,7 +141,6 @@ class NewSellsPageState extends State<NewSellsPage> {
   final TextEditingController _numberCOntroller = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _emailCOntroller = TextEditingController();
-  final uid = Uuid();
 
   double totalAmount = 0;
   double payableamount = 0;
@@ -389,41 +389,35 @@ class NewSellsPageState extends State<NewSellsPage> {
       _saving = true;
     });
     // insert the created transaction
-    await context
-        .read<TransactionsProvider>()
-        .insertTransaction(transaction: trx)
-        .then(
-          (res) => () async {
-            if (res == null) {
-              await showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  content: Text("Transaction failed"),
-                  actions: [
-                    MaterialButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text("Okay"),
-                      color: Colors.blue,
-                    )
-                  ],
-                ),
-              );
-              setState(() {
-                addedItems = [];
-                _saving = false;
-              });
-              return;
-            } else {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => SellsDetails(
-                    transaction: res,
-                  ),
-                ),
-              );
-            }
-          },
-        );
+    var res = await context.read<LocalDatabaseHandler>().insertTransaction(trx);
+    if (res == null) {
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          content: Text("Transaction failed"),
+          actions: [
+            MaterialButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text("Okay"),
+              color: Colors.blue,
+            )
+          ],
+        ),
+      ).then(
+        (value) => setState(() {
+          _saving = false;
+        }),
+      );
+      return;
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => SellsDetails(
+            transaction: trx,
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -454,351 +448,356 @@ class NewSellsPageState extends State<NewSellsPage> {
         onPressed: _saving ? () {} : _save,
       ),
       body: Form(
-        child: GridView.count(
-          padding: EdgeInsets.all(8.0),
-          childAspectRatio: 0.90,
-          crossAxisCount: 1,
-          children: [
-            Card(
-              elevation: 5.0,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    color: Colors.tealAccent,
-                    width: double.maxFinite,
-                    padding: const EdgeInsets.all(12.0),
-                    child: const Text('Select Item(s)'),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              Card(
+                elevation: 5.0,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: 300.0,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: DropdownButtonFormField(
-                      value: name,
-                      onChanged: (value) => setState(() {
-                        name = value.toString();
-                        _priceController.text = inventoryItems
-                            .where((element) => element.name == value)
-                            .first
-                            .price
-                            .toString();
-                      }),
-                      items: List.generate(
-                        inventoryItems.length,
-                        (index) => DropdownMenuItem(
-                          value: inventoryItems[index].name,
-                          child: Text(
-                              "${inventoryItems[index].name}   (${inventoryItems[index].availableQuantity} available)"),
+                  child: Column(
+                    children: [
+                      Container(
+                        color: Colors.tealAccent,
+                        width: double.maxFinite,
+                        padding: const EdgeInsets.all(12.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Added Items'),
+                            Text("${addedItems.length} items")
+                          ],
                         ),
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Item Name',
-                        icon: Icon(Icons.inventory_2),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _priceController,
-                            keyboardType: TextInputType.number,
-                            enabled: false,
-                            decoration: const InputDecoration(
-                              labelText: 'Price',
-                              icon: Icon(Icons.price_change),
+                      Flexible(
+                        child: ListView(
+                          children: List.generate(
+                            addedItems.length,
+                            (index) => ListTile(
+                              title: Text(
+                                  "${addedItems[index].name} x ${addedItems[index].quantity.toString()}"),
+                              trailing: PopupMenuButton(
+                                itemBuilder: (context) {
+                                  return const [
+                                    PopupMenuItem<int>(
+                                        value: 0, child: Text('Edit')),
+                                    PopupMenuItem<int>(
+                                        value: 1, child: Text('Remove')),
+                                  ];
+                                },
+                                onSelected: (item) async {
+                                  switch (item) {
+                                    case 0:
+                                      _editAdded(addedItems[index]);
+                                      break;
+                                    case 1:
+                                      _removeItem(addedItems[index].name);
+                                      break;
+                                  }
+                                },
+                              ),
+                              subtitle: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text("Price: ${addedItems[index].price}"),
+                                  Text(
+                                      "ToTal Amount: ${addedItems[index].price * addedItems[index].quantity}")
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _totalAmountController,
-                            keyboardType: TextInputType.number,
-                            enabled: false,
-                            decoration: const InputDecoration(
-                              labelText: 'Total Amount',
-                              icon: Icon(Icons.calculate),
-                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Card(
+                elevation: 5.0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      color: Colors.tealAccent,
+                      width: double.maxFinite,
+                      padding: const EdgeInsets.all(12.0),
+                      child: const Text('Select Item(s)'),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: DropdownButtonFormField(
+                        value: name,
+                        onChanged: (value) => setState(() {
+                          name = value.toString();
+                          _priceController.text = inventoryItems
+                              .where((element) => element.name == value)
+                              .first
+                              .price
+                              .toString();
+                        }),
+                        items: List.generate(
+                          inventoryItems.length,
+                          (index) => DropdownMenuItem(
+                            value: inventoryItems[index].name,
+                            child: Text(
+                                "${inventoryItems[index].name}   (${inventoryItems[index].availableQuantity} available)"),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: TextFormField(
-                      keyboardType: TextInputType.number,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      onChanged: (val) => setState(() {
-                        _totalAmountController.text =
-                            _quantityController.text.isNotEmpty
-                                ? (double.parse(_priceController.text) *
-                                        int.parse(_quantityController.text))
-                                    .toString()
-                                : '0';
-                      }),
-                      controller: _quantityController,
-                      decoration: const InputDecoration(
-                        labelText: 'Quantity',
-                        hintText: 'How many items?',
-                        icon: Icon(Icons.calculate),
+                        decoration: const InputDecoration(
+                          labelText: 'Item Name',
+                          icon: Icon(Icons.inventory_2),
+                        ),
                       ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: MaterialButton(
-                      height: 50.0,
-                      color: Colors.green,
-                      onPressed: _addItem,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(5.0),
-                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(6.0),
-                            child: const Icon(
-                              Icons.add,
-                              color: Colors.white,
-                              size: 30,
+                          Expanded(
+                            child: TextFormField(
+                              controller: _priceController,
+                              keyboardType: TextInputType.number,
+                              enabled: false,
+                              decoration: const InputDecoration(
+                                labelText: 'Price',
+                                icon: Icon(Icons.price_change),
+                              ),
                             ),
                           ),
-                          const Text(
-                            "ADD",
-                            style: TextStyle(
-                              fontSize: 18.0,
-                              color: Colors.white,
+                          Expanded(
+                            child: TextFormField(
+                              controller: _totalAmountController,
+                              keyboardType: TextInputType.number,
+                              enabled: false,
+                              decoration: const InputDecoration(
+                                labelText: 'Total Amount',
+                                icon: Icon(Icons.calculate),
+                              ),
                             ),
-                          )
+                          ),
                         ],
                       ),
                     ),
-                  )
-                ],
-              ),
-            ),
-            Card(
-              elevation: 5.0,
-              child: Column(
-                children: [
-                  Container(
-                    color: Colors.tealAccent,
-                    width: double.maxFinite,
-                    padding: const EdgeInsets.all(12.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Added Items'),
-                        Text("${addedItems.length} items")
-                      ],
-                    ),
-                  ),
-                  Flexible(
-                    child: ListView(
-                      children: List.generate(
-                        addedItems.length,
-                        (index) => ListTile(
-                          title: Text(
-                              "${addedItems[index].name} x ${addedItems[index].quantity.toString()}"),
-                          trailing: PopupMenuButton(
-                            itemBuilder: (context) {
-                              return const [
-                                PopupMenuItem<int>(
-                                    value: 0, child: Text('Edit')),
-                                PopupMenuItem<int>(
-                                    value: 1, child: Text('Remove')),
-                              ];
-                            },
-                            onSelected: (item) async {
-                              switch (item) {
-                                case 0:
-                                  _editAdded(addedItems[index]);
-                                  break;
-                                case 1:
-                                  _removeItem(addedItems[index].name);
-                                  break;
-                              }
-                            },
-                          ),
-                          subtitle: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text("Price: ${addedItems[index].price}"),
-                              Text(
-                                  "ToTal Amount: ${addedItems[index].price * addedItems[index].quantity}")
-                            ],
-                          ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: TextFormField(
+                        keyboardType: TextInputType.number,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        onChanged: (val) => setState(() {
+                          _totalAmountController.text =
+                              _quantityController.text.isNotEmpty
+                                  ? (double.parse(_priceController.text) *
+                                          int.parse(_quantityController.text))
+                                      .toString()
+                                  : '0';
+                        }),
+                        controller: _quantityController,
+                        decoration: const InputDecoration(
+                          labelText: 'Quantity',
+                          hintText: 'How many items?',
+                          icon: Icon(Icons.calculate),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: MaterialButton(
+                        height: 50.0,
+                        color: Colors.green,
+                        onPressed: _addItem,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(5.0),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6.0),
+                              child: const Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                            ),
+                            const Text(
+                              "ADD",
+                              style: TextStyle(
+                                fontSize: 18.0,
+                                color: Colors.white,
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
+                    )
+                  ],
+                ),
               ),
-            ),
-            Card(
-              elevation: 5.0,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    color: Colors.tealAccent,
-                    width: double.maxFinite,
-                    padding: EdgeInsets.all(12.0),
-                    child: Text('Payment Infomation'),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _equivalentAmount,
-                            keyboardType: TextInputType.number,
-                            enabled: false,
-                            decoration: const InputDecoration(
-                              labelText: 'Amount',
-                              icon: Icon(Icons.calculate),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: TextFormField(
-                            inputFormatters: <TextInputFormatter>[
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            onChanged: _discountChanged,
-                            controller: _discountController,
-                            decoration: const InputDecoration(
-                              labelText: 'Discount',
-                              hintText: 'Enter Discounted amount',
-                              icon: Icon(Icons.remove),
-                            ),
-                          ),
-                        ),
-                      ],
+              Card(
+                elevation: 5.0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      color: Colors.tealAccent,
+                      width: double.maxFinite,
+                      padding: EdgeInsets.all(12.0),
+                      child: Text('Payment Infomation'),
                     ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: TextFormField(
-                      controller: _paymentAmountController,
-                      keyboardType: TextInputType.number,
-                      enabled: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Total Amount',
-                        icon: Icon(Icons.calculate),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _equivalentAmount,
+                              keyboardType: TextInputType.number,
+                              enabled: false,
+                              decoration: const InputDecoration(
+                                labelText: 'Amount',
+                                icon: Icon(Icons.calculate),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: TextFormField(
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              onChanged: _discountChanged,
+                              controller: _discountController,
+                              decoration: const InputDecoration(
+                                labelText: 'Discount',
+                                hintText: 'Enter Discounted amount',
+                                icon: Icon(Icons.remove),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            inputFormatters: <TextInputFormatter>[
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            controller: _amountPaidController,
-                            onChanged: _paidChanged,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Amount Paid',
-                              hintText: 'How much is being payed',
-                              icon: Icon(Icons.calculate),
-                            ),
-                          ),
+                    Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: TextFormField(
+                        controller: _paymentAmountController,
+                        keyboardType: TextInputType.number,
+                        enabled: false,
+                        decoration: const InputDecoration(
+                          labelText: 'Total Amount',
+                          icon: Icon(Icons.calculate),
                         ),
-                        Expanded(
-                          child: TextFormField(
-                            enabled: false,
-                            controller: _balanceController,
-                            decoration: const InputDecoration(
-                              labelText: 'Amount Remaining',
-                              hintText: 'Amount left',
-                              icon: Icon(Icons.remove),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Card(
-              elevation: 5.0,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    color: Colors.tealAccent,
-                    width: double.maxFinite,
-                    padding: EdgeInsets.all(12.0),
-                    child: Text('Customer Infomation'),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: TextFormField(
-                      controller: _customerNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Customer Name',
-                        icon: Icon(Icons.person),
                       ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            inputFormatters: <TextInputFormatter>[
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            controller: _numberCOntroller,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Phone Number',
-                              hintText: 'phone Number of customer',
-                              icon: Icon(Icons.phone),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              controller: _amountPaidController,
+                              onChanged: _paidChanged,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Amount Paid',
+                                hintText: 'How much is being payed',
+                                icon: Icon(Icons.calculate),
+                              ),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _emailCOntroller,
-                            decoration: const InputDecoration(
-                              labelText: 'Email',
-                              hintText: 'Customer\'s email',
-                              icon: Icon(Icons.email),
+                          Expanded(
+                            child: TextFormField(
+                              enabled: false,
+                              controller: _balanceController,
+                              decoration: const InputDecoration(
+                                labelText: 'Amount Remaining',
+                                hintText: 'Amount left',
+                                icon: Icon(Icons.remove),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: TextFormField(
-                      controller: _addressController,
-                      decoration: const InputDecoration(
-                        labelText: 'Address',
-                        hintText: 'Customer\'s address',
-                        icon: Icon(Icons.home),
+                        ],
                       ),
                     ),
-                  )
-                ],
+                  ],
+                ),
               ),
-            ),
-            const Padding(padding: EdgeInsets.symmetric(vertical: 14.0))
-          ],
+              Card(
+                elevation: 5.0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      color: Colors.tealAccent,
+                      width: double.maxFinite,
+                      padding: EdgeInsets.all(12.0),
+                      child: Text('Customer Infomation'),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: TextFormField(
+                        controller: _customerNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Customer Name',
+                          icon: Icon(Icons.person),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              controller: _numberCOntroller,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Phone Number',
+                                hintText: 'phone Number of customer',
+                                icon: Icon(Icons.phone),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _emailCOntroller,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                hintText: 'Customer\'s email',
+                                icon: Icon(Icons.email),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: TextFormField(
+                        controller: _addressController,
+                        decoration: const InputDecoration(
+                          labelText: 'Address',
+                          hintText: 'Customer\'s address',
+                          icon: Icon(Icons.home),
+                        ),
+                      ),
+                    )
+                  ],
+                ),
+              ),
+              const Padding(padding: EdgeInsets.symmetric(vertical: 14.0))
+            ],
+          ),
         ),
       ),
     );

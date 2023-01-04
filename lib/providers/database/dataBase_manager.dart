@@ -12,7 +12,7 @@ String dbFileName = "Xpirax.db";
 
 class LocalDatabaseHandler extends ChangeNotifier {
   String inventoryItemsTable = 'inventoryItemsRecord';
-  String transactionBdName = 'salesTransaction';
+  String transactionBdName = 'transactionTable';
   String salesTableName = 'ItemsSalesRecord';
 
   openDB() async {
@@ -64,11 +64,7 @@ class LocalDatabaseHandler extends ChangeNotifier {
   Future<List<Inventory>> getItemsFromInventory() async {
     Database db = await openDB();
     var dbResult = await db.query(inventoryItemsTable);
-    var inventories = dbResult
-        .map(
-          (e) => Inventory.fromJson(e),
-        )
-        .toList();
+    var inventories = dbResult.map((e) => Inventory.fromJson(e)).toList();
     return inventories;
   }
 
@@ -123,10 +119,12 @@ class LocalDatabaseHandler extends ChangeNotifier {
 
   Future<List<trx.Transaction>> getTransactions() async {
     Database db = await openDB();
-    return db
-        .query(transactionBdName)
-        .then((value) => value.map((e) => trx.Transaction.fromJson(e)))
-        .then((value) => value.toList());
+    var res = await db.query(transactionBdName);
+    var result = res.map((e) => trx.Transaction.fromJson(e)).toList();
+    for (var r in result) {
+      r.items = await getSoldItems(r.uid);
+    }
+    return result;
   }
 
   Future<List<trx.Transaction>> searchForTransaction(String term) async {
@@ -149,7 +147,11 @@ class LocalDatabaseHandler extends ChangeNotifier {
 
   Future insertTransaction(trx.Transaction item) async {
     Database db = await openDB();
-    await db.insert(transactionBdName, item.toJson());
+    var soldItems = item.items!;
+    var transactionJson = item.toJson();
+    transactionJson.remove('items');
+    await db.insert(transactionBdName, transactionJson);
+    await inserSoldtItems(soldItems);
     notifyListeners();
     return 1;
   }
@@ -182,7 +184,7 @@ class LocalDatabaseHandler extends ChangeNotifier {
     return db
         .query(
           salesTableName,
-          where: 'transactionID = ?',
+          where: 'transactionUID = ?',
           whereArgs: [
             id,
           ],
