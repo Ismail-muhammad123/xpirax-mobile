@@ -194,6 +194,15 @@ class LocalDatabaseHandler extends ChangeNotifier {
         .then((value) => value.toList());
   }
 
+  Future<List<Item>> getAllSoldItems() async {
+    Database db = await openDB();
+    return db
+        .query(
+          salesTableName,
+        )
+        .then((value) => value.map((e) => Item.fromJson(e)).toList());
+  }
+
   Future inserSoldtItems(List<Item> items) async {
     Database db = await openDB();
     for (var element in items) {

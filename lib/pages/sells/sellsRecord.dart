@@ -49,6 +49,7 @@ class _SellsPageState extends State<SellsPage> {
       ),
       appBar: AppBar(
         elevation: 0,
+        centerTitle: true,
         title: const Text('Transactions Record'),
       ),
       body: Column(

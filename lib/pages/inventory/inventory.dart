@@ -69,6 +69,7 @@ class _InventoryPageState extends State<InventoryPage> {
       ),
       appBar: AppBar(
         elevation: 0,
+        centerTitle: true,
         title: Text('Inventory'.toUpperCase()),
       ),
       body: SizedBox(
