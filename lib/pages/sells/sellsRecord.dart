@@ -1,12 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:xpirax/data/cart_data.dart';
-import 'package:xpirax/data/transaction.dart';
+import 'package:xpirax/data/data.dart';
 import 'package:xpirax/pages/sells/transaction_form.dart';
 import 'package:xpirax/pages/sells/sellsDetails.dart';
-import 'package:xpirax/providers/database/dataBase_manager.dart';
-import 'package:xpirax/providers/web_database_providers.dart';
-import 'package:provider/provider.dart';
 
 class SellsPage extends StatefulWidget {
   const SellsPage({Key? key}) : super(key: key);
@@ -18,8 +15,27 @@ class SellsPage extends StatefulWidget {
 class _SellsPageState extends State<SellsPage> {
   final TextEditingController _searchController = TextEditingController();
 
-  Future<List<Transaction>> _searchTransactions() async {
-    return await context.read<LocalDatabaseHandler>().getTransactions().then(
+  Future<List<TransactionData>> _searchTransactions() async {
+    return await FirebaseFirestore.instance
+        .collection('transactions')
+        .get()
+        .then(
+          (value) => value.docs.map(
+            (e) => TransactionData(
+              id: e.id,
+              customerName: e.data()['customerName'],
+              customerAddress: e.data()['customerAddress'],
+              customerPhoneNumber: e.data()['customerPhoneNumber'],
+              customerEmail: e.data()['customerEmail'],
+              amount: e.data()['amount'],
+              amountPaid: e.data()['amountPaid'],
+              discount: e.data()['discount'],
+              balance: e.data()['balance'],
+              time: e.data()['time'],
+            ),
+          ),
+        )
+        .then(
           (value) => value
               .where(
                 (element) => element.customerName.contains(
@@ -91,7 +107,7 @@ class _SellsPageState extends State<SellsPage> {
                                     alignment: Alignment.center,
                                     child: const Text('Search results'),
                                   ),
-                                  FutureBuilder<List<Transaction>>(
+                                  FutureBuilder<List<TransactionData>>(
                                     future: _searchTransactions(),
                                     builder: (context, snapshot) {
                                       if (snapshot.connectionState ==
@@ -171,8 +187,10 @@ class _SellsPageState extends State<SellsPage> {
           ),
           Flexible(
             child: SingleChildScrollView(
-              child: FutureBuilder<List<Transaction>?>(
-                future: context.watch<LocalDatabaseHandler>().getTransactions(),
+              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: FirebaseFirestore.instance
+                    .collection('transactions')
+                    .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
@@ -182,7 +200,7 @@ class _SellsPageState extends State<SellsPage> {
                     );
                   }
 
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                     return const SizedBox(
                       height: 500,
                       child: Padding(
@@ -198,7 +216,23 @@ class _SellsPageState extends State<SellsPage> {
                     );
                   }
                   return SellsRecord(
-                    data: snapshot.data!,
+                    data: snapshot.data!.docs
+                        .map(
+                          (e) => TransactionData(
+                            id: e.id,
+                            customerName: e.data()['customerName'],
+                            customerAddress: e.data()['customerAdress'],
+                            customerPhoneNumber:
+                                e.data()['customerPhoneNumber'],
+                            customerEmail: e.data()['customerEmail'],
+                            amount: e.data()['amount'],
+                            amountPaid: e.data()['amountPaid'],
+                            discount: e.data()['discount'],
+                            balance: e.data()['balance'],
+                            time: e.data()['time'],
+                          ),
+                        )
+                        .toList(),
                   );
                 },
               ),
@@ -211,7 +245,7 @@ class _SellsPageState extends State<SellsPage> {
 }
 
 class SellsRecord extends StatefulWidget {
-  final List<Transaction> data;
+  final List<TransactionData> data;
   const SellsRecord({Key? key, required this.data}) : super(key: key);
 
   @override
@@ -252,7 +286,7 @@ class _SellsRecordState extends State<SellsRecord> {
                     )),
                     DataCell(Text(
                       DateFormat("d/M/y").format(
-                        DateTime.parse(e.date!),
+                        e.time.toDate(),
                       ),
                       textAlign: TextAlign.center,
                     )),

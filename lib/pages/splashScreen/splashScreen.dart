@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xpirax/home.dart';
 import 'package:xpirax/pages/dashboard/dashboard.dart';
 import 'package:xpirax/pages/login/loginPage.dart';
-import '../../providers/web_database_providers.dart';
 import 'package:provider/provider.dart';
 
 class SplashScreen extends StatefulWidget {

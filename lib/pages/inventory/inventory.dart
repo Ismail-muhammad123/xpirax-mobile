@@ -1,11 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:xpirax/data/inventory.dart';
+import 'package:xpirax/data/data.dart';
 import 'package:xpirax/pages/inventory/newInventory.dart';
-import 'package:xpirax/providers/web_database_providers.dart';
 
-import '../../providers/database/dataBase_manager.dart';
 
 class InventoryPage extends StatefulWidget {
   const InventoryPage({Key? key}) : super(key: key);
@@ -15,17 +13,32 @@ class InventoryPage extends StatefulWidget {
 }
 
 class _InventoryPageState extends State<InventoryPage> {
-  final InventoryProvider inventory = InventoryProvider();
   final TextEditingController _searchController = TextEditingController();
 
-  Future<List<Inventory>> _searchInventory() async => await context
-      .read<LocalDatabaseHandler>()
-      .getItemsFromInventory()
-      .then(
-        (value) => value
-            .where((element) => element.name.contains(_searchController.text))
-            .toList(),
-      );
+  var inventoryStream =
+      FirebaseFirestore.instance.collection('inventory').snapshots();
+
+  Future<List<InventoryData>> _searchInventory() async =>
+      await FirebaseFirestore.instance
+          .collection('inventory')
+          .get()
+          .then(
+            (value) => value.docs.map(
+              (e) => InventoryData(
+                name: e.data()['name'],
+                description: e.data()['description'],
+                availableQuantity: e.data()['available_quantity'],
+                price: e.data()['price'],
+                id: e.id,
+              ),
+            ),
+          )
+          .then(
+            (value) => value
+                .where(
+                    (element) => element.name.contains(_searchController.text))
+                .toList(),
+          );
 
   @override
   void dispose() {
@@ -40,17 +53,6 @@ class _InventoryPageState extends State<InventoryPage> {
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // FloatingActionButton(
-          //   heroTag: 'reload',
-          //   tooltip: 'Reload inventory items',
-          //   elevation: 20.0,
-          //   onPressed: () => setState(() {}),
-          //   child: const Icon(
-          //     Icons.replay_outlined,
-          //     size: 40.0,
-          //   ),
-          // ),
-          // Padding(padding: EdgeInsets.all(12)),
           FloatingActionButton(
             heroTag: 'new',
             tooltip: 'Add new item to inventory',
@@ -112,8 +114,9 @@ class _InventoryPageState extends State<InventoryPage> {
                                   alignment: Alignment.center,
                                   child: const Text('Search results'),
                                 ),
-                                FutureBuilder<List<Inventory>>(
-                                  future: _searchInventory(),
+                                StreamBuilder<
+                                    QuerySnapshot<Map<String, dynamic>>>(
+                                  stream: inventoryStream,
                                   builder: (context, snapshot) {
                                     if (snapshot.connectionState !=
                                         ConnectionState.waiting) {
@@ -126,7 +129,7 @@ class _InventoryPageState extends State<InventoryPage> {
                                       );
                                     }
 
-                                    if (snapshot.data!.isEmpty ||
+                                    if (snapshot.data!.docs.isEmpty ||
                                         snapshot.data == null) {
                                       return Container(
                                         height:
@@ -145,7 +148,19 @@ class _InventoryPageState extends State<InventoryPage> {
                                       child: SizedBox(
                                         width: double.maxFinite,
                                         child: InventoryTable(
-                                          data: snapshot.data!,
+                                          data: snapshot.data!.docs
+                                              .map(
+                                                (e) => InventoryData(
+                                                  id: e.id,
+                                                  name: e.data()['name'],
+                                                  description:
+                                                      e.data()['description'],
+                                                  availableQuantity: e.data()[
+                                                      'available_quantity'],
+                                                  price: e.data()['price'],
+                                                ),
+                                              )
+                                              .toList(),
                                         ),
                                       ),
                                     );
@@ -186,10 +201,8 @@ class _InventoryPageState extends State<InventoryPage> {
             Flexible(
               child: SingleChildScrollView(
                 scrollDirection: Axis.vertical,
-                child: FutureBuilder<List<Inventory>?>(
-                  future: context
-                      .watch<LocalDatabaseHandler>()
-                      .getItemsFromInventory(),
+                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: inventoryStream,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(
@@ -197,7 +210,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       );
                     }
 
-                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return SizedBox(
                         height: 500,
                         child: Padding(
@@ -228,7 +241,17 @@ class _InventoryPageState extends State<InventoryPage> {
                     }
 
                     return InventoryTable(
-                      data: snapshot.data!,
+                      data: snapshot.data!.docs
+                          .map(
+                            (e) => InventoryData(
+                              id: e.id,
+                              name: e.data()['name'],
+                              description: e.data()['description'],
+                              availableQuantity: e.data()['available_quantity'],
+                              price: e.data()['price'],
+                            ),
+                          )
+                          .toList(),
                     );
                   },
                 ),
@@ -242,7 +265,7 @@ class _InventoryPageState extends State<InventoryPage> {
 }
 
 class InventoryTable extends StatefulWidget {
-  final List<Inventory> data;
+  final List<InventoryData> data;
   const InventoryTable({Key? key, required this.data}) : super(key: key);
 
   @override

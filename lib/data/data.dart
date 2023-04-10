@@ -1,4 +1,6 @@
 import 'package:charts_flutter/flutter.dart' as charts;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 
 class SummaryDataItem {
   final String id;
@@ -16,142 +18,138 @@ class SummaryDataItem {
 
 // ######################################################################################################
 
-// class ChartData {
-//   ChartData(this.x, this.y, [this.color = Colors.green]);
-//   final String x;
-//   final double y;
-//   Color color;
-// }
+class ChartData {
+  ChartData(this.x, this.y, [this.color = Colors.green]);
+  final String x;
+  final double y;
+  Color color;
+}
 
-// class SalesTransaction {
-//   late final String id;
-//   late final String customerName;
-//   late final String address;
-//   late final String phoneNumber;
-//   late final String email;
-//   late final double amount;
-//   late final double amountPaid;
-//   late final double discount;
-//   late final double balance;
-//   late final String date;
+class TransactionData {
+  String? id;
+  late final String customerName;
+  late final String customerAddress;
+  late final String customerPhoneNumber;
+  late final String customerEmail;
+  late final num amount;
+  late final num amountPaid;
+  late final num balance;
+  late final num discount;
+  late final Timestamp time;
 
-//   SalesTransaction({
-//     required this.id,
-//     required this.customerName,
-//     required this.address,
-//     required this.phoneNumber,
-//     required this.email,
-//     required this.amount,
-//     required this.amountPaid,
-//     required this.discount,
-//     required this.balance,
-//     required this.date,
-//   });
+  TransactionData({
+    this.id,
+    required this.customerName,
+    required this.customerAddress,
+    required this.customerPhoneNumber,
+    required this.customerEmail,
+    required this.amount,
+    required this.amountPaid,
+    required this.discount,
+    required this.balance,
+    required this.time,
+  });
 
-//   SalesTransaction.fromJson(Map<String, dynamic> data) {
-//     id = data["id"];
-//     customerName = data["customerName"];
-//     address = data["address"];
-//     phoneNumber = data["phoneNumber"].toString();
-//     email = data["email"];
-//     amount = double.parse(data["amount"].toString());
-//     amountPaid = data["amountPaid"];
-//     discount = data["discount"];
-//     balance = data["balance"];
-//     date = data["date"];
-//   }
+  TransactionData.fromJson(Map<String, dynamic> data) {
+    id = data["id"];
+    customerName = data["customerName"];
+    customerAddress = data["customerAdress"];
+    customerPhoneNumber = data["customerPhoneNumber"].toString();
+    customerEmail = data["customerEmail"];
+    amount = data["amount"];
+    amountPaid = data["amountPaid"];
+    discount = data["discount"];
+    balance = data["balance"];
+    time = data["time"];
+  }
 
-//   Map<String, dynamic> toJson() {
-//     return {
-//       "id": id,
-//       "customerName": customerName,
-//       "address": address,
-//       "phoneNumber": phoneNumber,
-//       "email": email,
-//       "amount": amount,
-//       "amountPaid": amountPaid,
-//       "discount": discount,
-//       "balance": balance,
-//       "date": date,
-//     };
-//   }
-// }
+  Map<String, dynamic> toJson() {
+    return {
+      "id": id,
+      "customerName": customerName,
+      "customerAdress": customerAddress,
+      "customerPhoneNumber": customerPhoneNumber,
+      "customerEmail": customerEmail,
+      "amount": amount,
+      "amountPaid": amountPaid,
+      "discount": discount,
+      "balance": balance,
+      "time": time,
+    };
+  }
+}
 
-// class SellsRecordData {
-//   late String id;
-//   late final String transactionID;
-//   late final String name;
-//   late final int quantity;
-//   late final double price;
-//   late final double amount;
-//   late final String date;
+class SoldItem {
+  String? id;
+  String? transactionID;
+  late final String name;
+  late final num quantity;
+  late final num price;
+  late final num amount;
+  late final Timestamp salesTime;
 
-//   SellsRecordData({
-//     required this.id,
-//     required this.name,
-//     required this.transactionID,
-//     required this.quantity,
-//     required this.price,
-//     required this.amount,
-//     required this.date,
-//   });
+  SoldItem({
+    this.id,
+    required this.name,
+    this.transactionID,
+    required this.quantity,
+    required this.price,
+    required this.amount,
+    required this.salesTime,
+  });
 
-//   SellsRecordData.fromJson(Map<String, dynamic> data) {
-//     id = data["id"];
-//     name = data["name"];
-//     transactionID = data["transactionID"];
-//     quantity = data["quantity"];
-//     price = double.parse(data["price"].toString());
-//     amount = double.parse(data["amount"].toString());
-//     date = data["date"];
-//   }
+  SoldItem.fromJson(Map<String, dynamic> data) {
+    name = data["name"];
+    transactionID = data["transactionUid"];
+    quantity = data["quantity"];
+    price = data["price"];
+    amount = data["amount"];
+    salesTime = data["salesTime"];
+  }
 
-//   Map<String, dynamic> toJson() {
-//     return {
-//       "id": id,
-//       "name": name,
-//       "transactionID": transactionID,
-//       "quantity": quantity,
-//       "price": price,
-//       "amount": amount,
-//       "date": date,
-//     };
-//   }
-// }
+  Map<String, dynamic> toJson() {
+    return {
+      "name": name,
+      "transactionUid": transactionID,
+      "quantity": quantity,
+      "price": price,
+      "amount": amount,
+      "salesTime": salesTime,
+    };
+  }
+}
 
-// // #######################################################################################################
-// class InventoryData {
-//   late String id;
-//   late String name;
-//   late String description;
-//   late int available;
-//   late double price;
+// #######################################################################################################
+class InventoryData {
+  String? id;
+  late String name;
+  late String description;
+  late num availableQuantity;
+  late num price;
 
-//   InventoryData({
-//     required this.id,
-//     required this.name,
-//     required this.description,
-//     required this.available,
-//     required this.price,
-//   });
+  InventoryData({
+    this.id,
+    required this.name,
+    required this.description,
+    required this.availableQuantity,
+    required this.price,
+  });
 
-//   InventoryData.fromMap(data) {
-//     id = data['id'];
-//     description = data['description'] ?? "";
-//     name = data['name'] ?? "";
-//     available = data['available'] ?? 0;
-//     price = data['price'];
-//   }
+  InventoryData.fromMap(data) {
+    description = data['description'] ?? "";
+    name = data['name'] ?? "";
+    availableQuantity = data['available_quantity'] ?? 0;
+    price = data['price'];
+  }
 
-//   toMap() {
-//     return {
-//       'id': id,
-//       'name': name,
-//       'description': description,
-//       'available': available,
-//       'price': price,
-//     };
-//   }
-// }
+  toMap() {
+    return {
+      'name': name,
+      'description': description,
+      'available_quantity': availableQuantity,
+      'price': price,
+    };
+  }
+}
 
-// // #######################################################################################################
+// #######################################################################################################

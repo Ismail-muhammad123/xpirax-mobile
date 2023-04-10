@@ -1,17 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:xpirax/data/cart_data.dart';
-import 'package:xpirax/data/inventory.dart';
-import 'package:xpirax/data/transaction.dart';
-import 'package:xpirax/pages/sells/sellsDetails.dart';
-import 'package:xpirax/providers/database/dataBase_manager.dart';
-import 'package:xpirax/providers/web_database_providers.dart';
 import 'package:uuid/uuid.dart';
-
-import 'package:provider/provider.dart';
+import 'package:xpirax/pages/sells/sellsDetails.dart';
+import '../../data/data.dart';
 
 class SellsForm extends StatefulWidget {
-  final Transaction? trx;
+  final TransactionData? trx;
   const SellsForm({
     Key? key,
     this.trx,
@@ -28,8 +23,8 @@ class _SellsFormState extends State<SellsForm> {
       appBar: AppBar(
         title: const Text('New Transaction'),
       ),
-      body: FutureBuilder<List<Inventory>?>(
-        future: context.watch<LocalDatabaseHandler>().getItemsFromInventory(),
+      body: FutureBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        future: FirebaseFirestore.instance.collection('inventory').get(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -39,7 +34,12 @@ class _SellsFormState extends State<SellsForm> {
 
           if (snapshot.hasData) {
             return NewSellsPage(
-              inventoryData: snapshot.data!
+              inventoryData: snapshot.data!.docs
+                  .map((e) => InventoryData(
+                      name: e.data()['name'],
+                      description: e.data()['description'],
+                      availableQuantity: e.data()['available_quantity'],
+                      price: e.data()['price']))
                   .where((element) => element.availableQuantity > 0)
                   .toList(),
               transaction: widget.trx,
@@ -71,8 +71,8 @@ class _SellsFormState extends State<SellsForm> {
 }
 
 class NewSellsPage extends StatefulWidget {
-  final List<Inventory> inventoryData;
-  final Transaction? transaction;
+  final List<InventoryData> inventoryData;
+  final TransactionData? transaction;
   const NewSellsPage({
     Key? key,
     required this.inventoryData,
@@ -85,13 +85,13 @@ class NewSellsPage extends StatefulWidget {
 
 class NewSellsPageState extends State<NewSellsPage> {
   String name = '';
-  List<Inventory> inventoryItems = [];
-  List<Item> addedItems = [];
+  List<InventoryData> inventoryItems = [];
+  List<SoldItem> addedItems = [];
   bool _saving = false;
 
   String transactionUid = const Uuid().v4();
 
-  _getEditabeItems() => setState(() => addedItems = widget.transaction!.items!);
+  _getEditabeItems(data) => setState(() => addedItems = data);
 
   @override
   void initState() {
@@ -107,20 +107,35 @@ class NewSellsPageState extends State<NewSellsPage> {
       var trx = widget.transaction!;
 
       _customerNameController.text = trx.customerName;
-      _addressController.text = trx.address;
-      _numberCOntroller.text = trx.phoneNumber;
-      _emailCOntroller.text = trx.email;
+      _addressController.text = trx.customerAddress;
+      _numberCOntroller.text = trx.customerPhoneNumber;
+      _emailCOntroller.text = trx.customerEmail;
       _totalAmountController.text = trx.amount.toString();
       _amountPaidController.text = trx.amountPaid.toString();
 
       _balanceController.text = trx.balance.toString();
-      totalAmount = trx.amount + trx.discount;
+      totalAmount = (trx.amount).toDouble() + trx.discount;
 
       _equivalentAmount.text = (trx.amount + trx.discount).toString();
       _discountController.text = trx.discount.toString();
-
-      _getEditabeItems();
       _discountChanged(trx.discount.toString());
+      FirebaseFirestore.instance
+          .collection('sales')
+          .where('transactionUid', isEqualTo: widget.transaction!.id!)
+          .get()
+          .then(
+            (value) => _getEditabeItems(
+              value.docs.map(
+                (e) => SoldItem(
+                  name: e.data()['name'],
+                  quantity: e.data()['quantity'],
+                  price: e.data()['price'],
+                  amount: e.data()['amount'],
+                  salesTime: e.data()['salesTime'],
+                ),
+              ),
+            ),
+          );
     } else {
       _amountPaidController.text = "0";
       _discountController.text = '0';
@@ -175,18 +190,15 @@ class NewSellsPageState extends State<NewSellsPage> {
         return;
       }
       try {
-        var obj = Item(
-          uid: const Uuid().v4(),
-          productUID: selected.uid,
+        var obj = SoldItem(
           name: selected.name,
           quantity: int.parse(_quantityController.text),
           price: double.parse(_priceController.text.trim()),
-          transactionUID: widget.transaction != null
-              ? widget.transaction!.uid
-              : transactionUid,
+          transactionID:
+              widget.transaction != null ? widget.transaction!.id : null,
           amount: double.parse(_priceController.text.trim()) *
               int.parse(_quantityController.text),
-          date: DateTime.now().toString(),
+          salesTime: Timestamp.now(),
           // item quantity
         );
 
@@ -211,8 +223,11 @@ class NewSellsPageState extends State<NewSellsPage> {
           );
           return;
         }
-        List<Item> items = [];
+
+        List<SoldItem> items = [];
+
         items.add(obj);
+
         var discount = _discountController.text.isNotEmpty
             ? _discountController.text
             : '0';
@@ -245,8 +260,8 @@ class NewSellsPageState extends State<NewSellsPage> {
             actions: [
               MaterialButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Okay'),
                 color: Colors.blueAccent,
+                child: const Text('Okay'),
               )
             ],
           ),
@@ -256,7 +271,7 @@ class NewSellsPageState extends State<NewSellsPage> {
   }
 
   _removeItem(String name) {
-    List<Item> items = addedItems;
+    List<SoldItem> items = addedItems;
     items.removeWhere((element) => element.name == name);
     double total = 0;
     for (var element in items) {
@@ -279,9 +294,9 @@ class NewSellsPageState extends State<NewSellsPage> {
     });
   }
 
-  _editAdded(Item obj) {
-    List<Item> items = addedItems;
-    items.removeWhere((element) => element.uid == obj.uid);
+  _editAdded(SoldItem obj) {
+    List<SoldItem> items = addedItems;
+    items.removeWhere((element) => element.name == obj.name);
     double total = 0;
     for (var element in items) {
       total = total + (element.price * element.quantity);
@@ -340,12 +355,12 @@ class NewSellsPageState extends State<NewSellsPage> {
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          content: Text("At least One Item Must be added"),
+          content: const Text("At least One Item Must be added"),
           actions: [
             MaterialButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text("Okay"),
               color: Colors.blue,
+              child: const Text("Okay"),
             )
           ],
         ),
@@ -371,50 +386,52 @@ class NewSellsPageState extends State<NewSellsPage> {
       return;
     }
 
-    Transaction trx = Transaction(
-      uid:
-          widget.transaction == null ? transactionUid : widget.transaction!.uid,
+    TransactionData trx = TransactionData(
       customerName: _customerNameController.text.trim(),
-      address: _addressController.text.trim(),
-      phoneNumber: _numberCOntroller.text.trim(),
-      email: _emailCOntroller.text.trim(),
+      customerAddress: _addressController.text.trim(),
+      customerPhoneNumber: _numberCOntroller.text.trim(),
+      customerEmail: _emailCOntroller.text.trim(),
       amount: double.parse(_paymentAmountController.text.trim()),
       amountPaid: double.parse(_amountPaidController.text.trim()),
       discount: double.parse(_discountController.text.trim()),
       balance: double.parse(_balanceController.text.trim()),
-      date: DateTime.now().toString(),
-      items: addedItems,
+      time: Timestamp.now(),
     );
     setState(() {
       _saving = true;
     });
     // insert the created transaction
-    var res = await context.read<LocalDatabaseHandler>().insertTransaction(trx);
-    if (res == null) {
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          content: Text("Transaction failed"),
-          actions: [
-            MaterialButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text("Okay"),
-              color: Colors.blue,
-            )
-          ],
-        ),
-      ).then(
-        (value) => setState(() {
-          _saving = false;
-        }),
-      );
-      return;
-    } else {
+    String trxId = "";
+
+    var res = await FirebaseFirestore.instance
+        .collection('transactions')
+        .add(trx.toJson());
+
+    trx.id = res.id;
+
+    for (var i in addedItems) {
+      i.transactionID = res.id;
+      try {
+        await FirebaseFirestore.instance.collection('sales').add(i.toJson());
+      } catch (e) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            content: const Text("Transaction failed"),
+            actions: [
+              MaterialButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("Okay"),
+                color: Colors.blue,
+              )
+            ],
+          ),
+        );
+      }
+      setState(() => _saving = false);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => SellsDetails(
-            transaction: trx,
-          ),
+          builder: (context) => SellsDetails(transaction: trx),
         ),
       );
     }

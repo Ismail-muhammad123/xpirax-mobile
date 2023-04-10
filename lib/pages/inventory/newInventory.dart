@@ -1,16 +1,12 @@
-import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:xpirax/data/cart_data.dart';
-import 'package:xpirax/data/inventory.dart';
-import 'package:xpirax/pages/sells/sellsDetails.dart';
 import 'package:uuid/uuid.dart';
-import 'package:xpirax/providers/database/dataBase_manager.dart';
-import 'package:xpirax/providers/web_database_providers.dart';
+
+import '../../data/data.dart';
 
 class NewInventoryPage extends StatefulWidget {
-  final Inventory? data;
+  final InventoryData? data;
   const NewInventoryPage({Key? key, this.data}) : super(key: key);
 
   @override
@@ -18,7 +14,7 @@ class NewInventoryPage extends StatefulWidget {
 }
 
 class _NewInventoryPageState extends State<NewInventoryPage> {
-  List<Inventory> itemsAdded = [];
+  List<InventoryData> itemsAdded = [];
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
@@ -58,8 +54,7 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
     }
     if (_nameController.value.text.isNotEmpty &&
         _priceController.value.text.isNotEmpty) {
-      var item = Inventory(
-        uid: const Uuid().v4(),
+      var item = InventoryData(
         description: _descriptionController.text,
         name: _nameController.value.text,
         availableQuantity: int.parse(_quantityController.value.text),
@@ -79,15 +74,13 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
   _saveInventoryItems() async {
     if (itemsAdded.isNotEmpty) {
       setState(() => saving = true);
-      context
-          .read<LocalDatabaseHandler>()
-          .insertItemsToInventory(itemsAdded)
-          .then((value) => setState(() => saving = false))
-          .then(
-        (value) {
-          Navigator.of(context).pop();
-        },
-      );
+      for (var item in itemsAdded) {
+        await FirebaseFirestore.instance
+            .collection('inventory')
+            .add(item.toMap());
+      }
+      setState(() => saving = false);
+      Navigator.of(context).pop();
     }
   }
 
@@ -98,16 +91,17 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
     if (_nameController.value.text.isNotEmpty &&
         _priceController.value.text.isNotEmpty) {
       setState(() => saving = true);
-      Inventory obj = Inventory(
-        uid: widget.data!.uid,
+      InventoryData obj = InventoryData(
+        id: widget.data!.id,
         name: _nameController.value.text,
         description: _descriptionController.text,
         availableQuantity: int.parse(_quantityController.value.text),
         price: double.parse(_priceController.value.text),
       );
-      context
-          .read<LocalDatabaseHandler>()
-          .updateInventoryItem(obj)
+      FirebaseFirestore.instance
+          .collection('inventory')
+          .doc(obj.id)
+          .update(obj.toMap())
           .then((value) => setState(() => saving = false))
           .then(
         (value) {
@@ -142,7 +136,7 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(
+          icon: const Icon(
             Icons.arrow_back,
           ),
           onPressed: () => Navigator.of(context).pop(),
@@ -163,8 +157,8 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
                     Container(
                       color: Colors.tealAccent,
                       width: double.maxFinite,
-                      padding: EdgeInsets.all(12.0),
-                      child: Text('Insert Item(s)'),
+                      padding: const EdgeInsets.all(12.0),
+                      child: const Text('Insert Item(s)'),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -298,8 +292,8 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
                           Container(
                             color: Colors.tealAccent,
                             width: double.maxFinite,
-                            padding: EdgeInsets.all(12.0),
-                            child: Text('Added Items'),
+                            padding: const EdgeInsets.all(12.0),
+                            child: const Text('Added Items'),
                           ),
                           ...itemsAdded.map(
                             (e) => ListTile(
@@ -317,8 +311,8 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
                                   switch (item) {
                                     case 0:
                                       setState(() {
-                                        itemsAdded.removeWhere(
-                                            (element) => element.uid == e.uid);
+                                        itemsAdded.removeWhere((element) =>
+                                            element.name == e.name);
                                       });
                                       break;
                                     case 1:
@@ -345,7 +339,7 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
                                 children: [
                                   Text('Quantity: ${e.availableQuantity}'),
                                   Text(
-                                      'ToTal Amount: ${e.price * e.availableQuantity}')
+                                      'Total Amount: ${e.price * e.availableQuantity}')
                                 ],
                               ),
                             ),

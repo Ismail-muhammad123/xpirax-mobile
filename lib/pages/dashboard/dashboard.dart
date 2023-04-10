@@ -1,15 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:charts_flutter/flutter.dart' as charts;
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:xpirax/providers/database/dataBase_manager.dart';
-import 'package:xpirax/providers/web_database_providers.dart';
-import 'package:xpirax/widgets/bar_chart.dart';
-
 import '../../data/data.dart';
-import '../../data/inventory.dart';
-import '../../data/summary_data.dart' as summary_data;
-import '../../data/transaction.dart';
+import '../../widgets/bar_chart.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({
@@ -21,107 +16,35 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  final List<summary_data.SummaryDataItem> _barList = [
-    summary_data.SummaryDataItem(
-      item: "mon",
-      value: 3,
-      id: "mon1",
-      barColor: charts.Color.fromOther(
-        color: charts.Color.fromHex(code: "#008080"),
-      ),
-    ),
-    summary_data.SummaryDataItem(
-      item: "tue",
-      value: 4,
-      id: "tues2",
-      barColor: charts.Color.fromOther(
-        color: charts.Color.fromHex(code: "#008080"),
-      ),
-    ),
-    summary_data.SummaryDataItem(
-      item: "wed",
-      value: 8,
-      id: "wed3",
-      barColor: charts.Color.fromOther(
-        color: charts.Color.fromHex(code: "#008080"),
-      ),
-    ),
-  ];
-
-  double _totalSales = 0;
-  double _debt = 0;
-  double _cash = 0;
-
-  List<Item> _latestSoldItems = [];
-  List<SummaryDataItem> _inventoryBarChartItems = [];
-
-  // @override
-  // void initState() {
-  //   context.watch<LocalDatabaseHandler>().getTransactions().then((value) {
-  //     var cash = value
-  //         .map((e) => e.amountPaid)
-  //         .fold<num>(0, (previousValue, element) => previousValue + element)
-  //         .toDouble();
-  //     var debt = value
-  //         .map((e) => e.balance)
-  //         .fold<num>(0, (previousValue, element) => previousValue + element)
-  //         .toDouble();
-  //     setState(() {
-  //       _totalSales = totalSales;
-  //       _debt = debt;
-  //       _cash = cash;
-  //     });
-  //     context
-  //         .watch<LocalDatabaseHandler>()
-  //         .getItemsFromInventory()
-  //         .then(
-  //           (value) => value
-  //               .map(
-  //                 (e) => SummaryDataItem(
-  //                   barColor: charts.Color.fromHex(code: "#008080"),
-  //                   item: e.name,
-  //                   value: e.availableQuantity,
-  //                   id: e.uid,
-  //                 ),
-  //               )
-  //               .toList(),
-  //         )
-  //         .then(
-  //           (value) => setState(
-  //             () => _inventoryBarChartItems = value,
-  //           ),
-  //         );
-  //   });
-  //   context.watch<LocalDatabaseHandler>().getAllSoldItems().then(
-  //     (value) {
-  //       value.sort(
-  //         (a, b) => DateTime.parse(a.date)
-  //             .millisecondsSinceEpoch
-  //             .compareTo(DateTime.parse(b.date).millisecondsSinceEpoch),
-  //       );
-  //       return value.reversed.toList();
-  //     },
-  //   ).then(
-  //     (value) => setState(
-  //       () => _latestSoldItems =
-  //           value.sublist(0, value.length > 10 ? 10 : value.length),
-  //     ),
-  //   );
-  //   super.initState();
-  // }
+  var transactionStream =
+      FirebaseFirestore.instance.collection('transactions').snapshots();
+  var inventoryStream =
+      FirebaseFirestore.instance.collection('inventory').snapshots();
+  var sales = FirebaseFirestore.instance.collection('sales').snapshots();
+  var profileInfo =
+      FirebaseFirestore.instance.collection('profile').snapshots();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: FutureBuilder<String>(
-          future: context.watch<Authentication>().getOfflineBusinessName(),
+        actions: [
+          IconButton(
+            onPressed: () => FirebaseAuth.instance.signOut(),
+            icon: const Icon(
+              Icons.logout,
+              color: Colors.red,
+            ),
+          ),
+        ],
+        title: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: profileInfo,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Text("...");
             }
             return Text(
-              snapshot.data!.toUpperCase(),
+              snapshot.data!.docs.first.data()['businessName'].toUpperCase(),
             );
           },
         ),
@@ -147,21 +70,19 @@ class _DashboardState extends State<Dashboard> {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           const Text(
-                            "Total Sales",
+                            "Transactions",
                             style: TextStyle(
                               fontSize: 18.0,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          FutureBuilder<List<Transaction>>(
-                            future: context
-                                .watch<LocalDatabaseHandler>()
-                                .getTransactions(),
+                          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                            stream: transactionStream,
                             builder: (context, snapshot) {
                               if (snapshot.connectionState ==
                                       ConnectionState.waiting ||
                                   !snapshot.hasData ||
-                                  snapshot.data!.isEmpty) {
+                                  snapshot.data!.docs.isEmpty) {
                                 return const Text(
                                   "0.0",
                                   style: TextStyle(
@@ -171,15 +92,9 @@ class _DashboardState extends State<Dashboard> {
                                 );
                               }
 
-                              var total = snapshot.data!
-                                  .map((e) => e.amount)
-                                  .fold<num>(
-                                      0,
-                                      (previousValue, element) =>
-                                          previousValue + element)
-                                  .toDouble();
+                              var total = snapshot.data!.docs.length;
                               return Text(
-                                "NGN ${NumberFormat('###,###,###').format(total)}",
+                                NumberFormat('###,###,###').format(total),
                                 style: const TextStyle(
                                   fontSize: 26.0,
                                   fontWeight: FontWeight.bold,
@@ -211,21 +126,19 @@ class _DashboardState extends State<Dashboard> {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           const Text(
-                            "Cash",
+                            "Amount",
                             style: TextStyle(
                               fontSize: 16.0,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          FutureBuilder<List<Transaction>>(
-                            future: context
-                                .watch<LocalDatabaseHandler>()
-                                .getTransactions(),
+                          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                            stream: transactionStream,
                             builder: (context, snapshot) {
                               if (snapshot.connectionState ==
                                       ConnectionState.waiting ||
                                   !snapshot.hasData ||
-                                  snapshot.data!.isEmpty) {
+                                  snapshot.data!.docs.isEmpty) {
                                 return const Text(
                                   "0.0",
                                   style: TextStyle(
@@ -236,8 +149,8 @@ class _DashboardState extends State<Dashboard> {
                                 );
                               }
 
-                              var cash = snapshot.data!
-                                  .map((e) => e.amountPaid)
+                              var cash = snapshot.data!.docs
+                                  .map((e) => e.data()['amountPaid'])
                                   .fold<num>(
                                       0,
                                       (previousValue, element) =>
@@ -273,21 +186,19 @@ class _DashboardState extends State<Dashboard> {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           const Text(
-                            "Debt",
+                            "Balance",
                             style: TextStyle(
-                              fontSize: 16.0,
+                              fontSize: 14.0,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          FutureBuilder<List<Transaction>>(
-                            future: context
-                                .watch<LocalDatabaseHandler>()
-                                .getTransactions(),
+                          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                            stream: transactionStream,
                             builder: (context, snapshot) {
                               if (snapshot.connectionState ==
                                       ConnectionState.waiting ||
                                   !snapshot.hasData ||
-                                  snapshot.data!.isEmpty) {
+                                  snapshot.data!.docs.isEmpty) {
                                 return const Text(
                                   "0.0",
                                   style: TextStyle(
@@ -298,8 +209,8 @@ class _DashboardState extends State<Dashboard> {
                                 );
                               }
 
-                              var debt = snapshot.data!
-                                  .map((e) => e.balance)
+                              var debt = snapshot.data!.docs
+                                  .map((e) => e.data()['balance'])
                                   .fold<num>(
                                       0,
                                       (previousValue, element) =>
@@ -322,19 +233,18 @@ class _DashboardState extends State<Dashboard> {
                 ),
               ],
             ),
-            FutureBuilder<List<Inventory>>(
-              future:
-                  context.watch<LocalDatabaseHandler>().getItemsFromInventory(),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: inventoryStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
+                  return const Center(
                     child: CircularProgressIndicator(color: Colors.tealAccent),
                   );
                 }
 
                 if (snapshot.connectionState == ConnectionState.waiting ||
                     !snapshot.hasData ||
-                    snapshot.data!.isEmpty) {
+                    snapshot.data!.docs.isEmpty) {
                   return const Center(
                     child: Text("Your Inventory is Empty"),
                   );
@@ -343,19 +253,19 @@ class _DashboardState extends State<Dashboard> {
                 return SizedBox(
                   height: 400.0,
                   child: BarChartWidget(
-                    data: snapshot.data!
+                    data: snapshot.data!.docs
                         .map(
-                          (e) => summary_data.SummaryDataItem(
-                            item: e.name,
-                            value: e.availableQuantity,
-                            id: e.uid,
+                          (e) => SummaryDataItem(
+                            item: e.data()['name'],
+                            value: e.data()['available_quantity'],
+                            id: e.id,
                             barColor: charts.Color.fromOther(
                               color: charts.Color.fromHex(code: "#008080"),
                             ),
                           ),
                         )
                         .toList(),
-                    heading: "Transactions",
+                    heading: "Inventory",
                   ),
                 );
               },
@@ -366,7 +276,7 @@ class _DashboardState extends State<Dashboard> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: Row(
-                children: [
+                children: const [
                   Text(
                     "Latest Sales",
                     style: TextStyle(
@@ -377,29 +287,39 @@ class _DashboardState extends State<Dashboard> {
                 ],
               ),
             ),
-            FutureBuilder<List<Item>>(
-              future: context.watch<LocalDatabaseHandler>().getAllSoldItems(),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: sales,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
+                  return const Center(
                     child: CircularProgressIndicator(color: Colors.tealAccent),
                   );
                 }
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return Center(
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(
                     child: Text("No Item is sold, yet."),
                   );
                 }
 
-                var items = snapshot.data;
-                items!.sort(
-                  (a, b) => DateTime.parse(a.date)
-                      .millisecondsSinceEpoch
-                      .compareTo(DateTime.parse(b.date).millisecondsSinceEpoch),
+                var items = snapshot.data!.docs
+                    .map(
+                      (e) => SoldItem(
+                        id: e.id,
+                        name: e.data()['name'],
+                        quantity: e.data()['quantity'],
+                        price: e.data()['price'],
+                        amount: e.data()['amount'],
+                        salesTime: e.data()['salesTime'],
+                      ),
+                    )
+                    .toList();
+                items.sort(
+                  (a, b) => a.salesTime.millisecondsSinceEpoch
+                      .compareTo(b.salesTime.millisecondsSinceEpoch),
                 );
                 return Column(
                   children: items
-                      .sublist(0, items.length > 10 ? 10 : items.length)
+                      .sublist(0, items.length > 6 ? 6 : items.length)
                       .map(
                         (e) => Padding(
                           padding: const EdgeInsets.all(4.0),
@@ -408,7 +328,7 @@ class _DashboardState extends State<Dashboard> {
                               children: [
                                 Text(e.name),
                                 Padding(
-                                  padding: EdgeInsets.only(left: 20.0),
+                                  padding: const EdgeInsets.only(left: 20.0),
                                   child: Text(
                                       "X ${NumberFormat('###,###,###').format(e.quantity)}"),
                                 )
@@ -416,12 +336,12 @@ class _DashboardState extends State<Dashboard> {
                             ),
                             subtitle: Text(
                               DateFormat("d/M/y").format(
-                                DateTime.parse(e.date),
+                                e.salesTime.toDate(),
                               ),
                             ),
                             trailing: Text(
                               "NGN ${NumberFormat('###,###,###').format(e.amount)}",
-                              style: TextStyle(color: Colors.red),
+                              style: const TextStyle(color: Colors.red),
                             ),
                             tileColor: Colors.tealAccent,
                           ),

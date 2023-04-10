@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:charts_flutter/flutter.dart' as charts;
-import 'package:xpirax/data/cart_data.dart';
 
-import '../data/summary_data.dart';
+import '../data/data.dart';
+
 
 class BarChartWidget extends StatelessWidget {
   final List<SummaryDataItem> data;

@@ -1,9 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:xpirax/data/business.dart';
-import 'package:xpirax/data/user.dart';
-import 'package:xpirax/providers/web_database_providers.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({Key? key}) : super(key: key);
@@ -13,6 +9,22 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  var profileInfo = {};
+  String profileID = "";
+
+  @override
+  void initState() {
+    FirebaseFirestore.instance.collection('profile').get().then(
+          (value) => setState(
+            () {
+              profileID = value.docs.first.id;
+              profileInfo = value.docs.first.data();
+            },
+          ),
+        );
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -21,6 +33,22 @@ class _SettingsPageState extends State<SettingsPage> {
       //   title: const Text("Profile"),
       //   elevation: 0,
       // ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => OfflineBusinessNameForm(
+                name: profileInfo['businessName'],
+                email: profileInfo['email'],
+                phone: profileInfo['phone'],
+                address: profileInfo['address'],
+                id: profileID,
+              ),
+            ),
+          );
+        },
+        child: Icon(Icons.edit),
+      ),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -48,8 +76,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       ),
                       Text(
-                        "My Profile".toUpperCase(),
-                        style: TextStyle(
+                        "Profile".toUpperCase(),
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 20.0,
                         ),
@@ -60,88 +88,132 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Container(
-                padding: EdgeInsets.all(12.0),
-                height: 120,
-                width: double.maxFinite,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.4),
-                      offset: Offset(6, 6),
-                      blurRadius: 8.0,
-                    )
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.business,
-                      color: Colors.teal,
-                      size: 50,
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Text(
-                              "Business Name",
-                              style: TextStyle(
-                                fontSize: 20.0,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            FutureBuilder<String>(
-                              future: context
-                                  .watch<Authentication>()
-                                  .getOfflineBusinessName(),
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  return Text(
-                                    "...",
-                                    style: TextStyle(
-                                      fontSize: 16.0,
-                                    ),
-                                  );
-                                }
-                                return Text(
-                                  snapshot.data ?? "",
-                                  style: TextStyle(
-                                    fontSize: 16.0,
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () async {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const OfflineBusinessNameForm(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(
-                        Icons.edit,
-                        size: 30,
-                        color: Colors.teal,
-                      ),
-                    ),
-                  ],
-                ),
+              padding: EdgeInsets.all(8),
+            ),
+            const Text(
+              "Business Name",
+              style: TextStyle(
+                fontSize: 16.0,
               ),
-            )
+            ),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream:
+                  FirebaseFirestore.instance.collection('profile').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Text(
+                    "...",
+                    style: TextStyle(
+                      fontSize: 16.0,
+                    ),
+                  );
+                }
+                return Text(
+                  snapshot.data!.docs.first.data()['businessName'] ?? "",
+                  style: const TextStyle(
+                    fontSize: 18.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                );
+              },
+            ),
+            Padding(
+              padding: EdgeInsets.all(8),
+              child: Divider(),
+            ),
+            const Text(
+              "Business Address",
+              style: TextStyle(
+                fontSize: 16.0,
+              ),
+            ),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream:
+                  FirebaseFirestore.instance.collection('profile').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Text(
+                    "...",
+                    style: TextStyle(
+                      fontSize: 16.0,
+                    ),
+                  );
+                }
+                return Text(
+                  snapshot.data!.docs.first.data()['address'] ?? "",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18.0,
+                  ),
+                );
+              },
+            ),
+            Padding(
+              padding: EdgeInsets.all(8),
+              child: Divider(),
+            ),
+            const Text(
+              "Business Phone Number",
+              style: TextStyle(
+                fontSize: 16.0,
+              ),
+            ),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream:
+                  FirebaseFirestore.instance.collection('profile').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Text(
+                    "...",
+                    style: TextStyle(
+                      fontSize: 16.0,
+                    ),
+                  );
+                }
+                return Text(
+                  snapshot.data!.docs.first.data()['phone'] ?? "",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18.0,
+                  ),
+                );
+              },
+            ),
+            Padding(
+              padding: EdgeInsets.all(8),
+              child: Divider(),
+            ),
+            const Text(
+              "Business Email",
+              style: TextStyle(
+                fontSize: 16.0,
+              ),
+            ),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream:
+                  FirebaseFirestore.instance.collection('profile').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Text(
+                    "...",
+                    style: TextStyle(
+                      fontSize: 16.0,
+                    ),
+                  );
+                }
+                return Text(
+                  snapshot.data!.docs.first.data()['email'] ?? "",
+                  style: const TextStyle(
+                    fontSize: 18.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                );
+              },
+            ),
+            Padding(
+              padding: EdgeInsets.all(8),
+              child: Divider(),
+            ),
           ],
         ),
       ),
@@ -150,7 +222,13 @@ class _SettingsPageState extends State<SettingsPage> {
 }
 
 class OfflineBusinessNameForm extends StatefulWidget {
+  final String name, email, address, phone, id;
   const OfflineBusinessNameForm({
+    required this.address,
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.phone,
     Key? key,
   }) : super(key: key);
 
@@ -161,13 +239,45 @@ class OfflineBusinessNameForm extends StatefulWidget {
 
 class OfflineBusinessNameFormState extends State<OfflineBusinessNameForm> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  bool _updating = false;
 
   @override
   void initState() {
-    context.read<Authentication>().getOfflineBusinessName().then(
-          (value) => setState(() => _nameController.text = value),
+    FirebaseFirestore.instance.collection('profile').get().then(
+          (value) => setState(() {
+            _nameController.text = value.docs.first.data()['businessName'];
+            _emailController.text = value.docs.first.data()['email'];
+            _phoneController.text = value.docs.first.data()['phone'];
+            _addressController.text = value.docs.first.data()['address'];
+          }),
         );
     super.initState();
+  }
+
+  _updateInfo() async {
+    setState(() => _updating = true);
+    await FirebaseFirestore.instance
+        .collection('profile')
+        .doc(widget.id)
+        .update({
+      "businessName": _nameController.text.trim(),
+      "email": _emailController.text.trim(),
+      "phone": _phoneController.text.trim(),
+      "address": _addressController.text.trim(),
+    });
+    Navigator.of(context).pop();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    super.dispose();
   }
 
   @override
@@ -176,53 +286,93 @@ class OfflineBusinessNameFormState extends State<OfflineBusinessNameForm> {
       appBar: AppBar(
         title: const Text("Update Business Name"),
       ),
-      body: Center(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          height: 200.0,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.4),
-                offset: const Offset(4, 4),
-                blurRadius: 8.0,
-              )
-            ],
-          ),
+      body: SingleChildScrollView(
+        child: Center(
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
+                Padding(
                   padding: const EdgeInsets.all(8.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10.0),
-                    border: Border.all(color: Colors.teal),
+                  child: Container(
+                    padding: const EdgeInsets.all(8.0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10.0),
+                      border: Border.all(color: Colors.teal),
+                    ),
+                    child: TextFormField(
+                      controller: _nameController,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        label: Text("Business Name"),
+                        hintText: "Enter business Name",
+                        border: InputBorder.none,
+                      ),
+                    ),
                   ),
-                  child: TextFormField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      hintMaxLines: 5,
-                      hintText: "Enter business Name",
-                      border: InputBorder.none,
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(8.0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10.0),
+                      border: Border.all(color: Colors.teal),
+                    ),
+                    child: TextFormField(
+                      controller: _addressController,
+                      decoration: const InputDecoration(
+                        label: Text("Address"),
+                        hintText: "Address",
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(8.0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10.0),
+                      border: Border.all(color: Colors.teal),
+                    ),
+                    child: TextFormField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(
+                        label: Text("Email"),
+                        hintText: "Enter business Email (optional)",
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(8.0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10.0),
+                      border: Border.all(color: Colors.teal),
+                    ),
+                    child: TextFormField(
+                      controller: _phoneController,
+                      decoration: const InputDecoration(
+                        label: Text("Phone Number"),
+                        hintText: "Phone Number",
+                        border: InputBorder.none,
+                      ),
                     ),
                   ),
                 ),
                 MaterialButton(
-                  onPressed: () {
-                    if (_nameController.text.isNotEmpty) {
-                      context
-                          .read<Authentication>()
-                          .setOfflineBusinessName(_nameController.text)
-                          .then((value) => Navigator.of(context).pop());
-                    }
-                  },
+                  onPressed: _updating ? null : _updateInfo,
                   color: Colors.teal,
-                  child: const Text("Save"),
+                  child: _updating
+                      ? const CircularProgressIndicator()
+                      : const Text("Save"),
                 ),
               ],
             ),
