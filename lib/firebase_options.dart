@@ -50,20 +50,20 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBMfadlZNyoh2mH0RqBFgSzJT0BMUjBwAM',
-    appId: '1:606419514484:android:a26b7aaae37ad9a3a04d21',
-    messagingSenderId: '606419514484',
-    projectId: 'xpirax-app',
-    storageBucket: 'xpirax-app.appspot.com',
+    apiKey: 'AIzaSyDC775DCza60GZJ4siDEYgV6Q8hUdNR5XA',
+    appId: '1:186289199266:android:62e9ee2d10eaaea4de1ffb',
+    messagingSenderId: '186289199266',
+    projectId: 'shurafau-bf71a',
+    storageBucket: 'shurafau-bf71a.appspot.com',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyD5vSgIjblMHv4aqbsKnGyer8X-NGVwKiU',
-    appId: '1:606419514484:ios:155d0d46032ba581a04d21',
-    messagingSenderId: '606419514484',
-    projectId: 'xpirax-app',
-    storageBucket: 'xpirax-app.appspot.com',
-    iosClientId: '606419514484-b4i4ph981sj9l9fhacflba6sqrp087hp.apps.googleusercontent.com',
+    apiKey: 'AIzaSyCMZrc93TmQ6IPcBlnq92n_O6v7UgmlaMo',
+    appId: '1:186289199266:ios:d0da93989f3b6ed1de1ffb',
+    messagingSenderId: '186289199266',
+    projectId: 'shurafau-bf71a',
+    storageBucket: 'shurafau-bf71a.appspot.com',
+    iosClientId: '186289199266-ilqhg6ijp7igm8kcprj35u8qs1boph2i.apps.googleusercontent.com',
     iosBundleId: 'com.example.xpirax',
   );
 }

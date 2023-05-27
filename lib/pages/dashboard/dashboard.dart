@@ -24,6 +24,11 @@ class _DashboardState extends State<Dashboard> {
   var profileInfo =
       FirebaseFirestore.instance.collection('profile').snapshots();
 
+  var user = FirebaseFirestore.instance
+      .collection('users')
+      .doc(FirebaseAuth.instance.currentUser!.uid)
+      .get();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -41,7 +46,7 @@ class _DashboardState extends State<Dashboard> {
           stream: profileInfo,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Text("...");
+              return const Text("Dashboard");
             }
             return Text(
               snapshot.data!.docs.first.data()['businessName'].toUpperCase(),
@@ -63,7 +68,7 @@ class _DashboardState extends State<Dashboard> {
                         color: Colors.tealAccent,
                         borderRadius: BorderRadius.circular(10.0),
                       ),
-                      padding: EdgeInsets.all(12.0),
+                      padding: const EdgeInsets.all(12.0),
                       height: 120.0,
                       width: double.maxFinite,
                       child: Column(

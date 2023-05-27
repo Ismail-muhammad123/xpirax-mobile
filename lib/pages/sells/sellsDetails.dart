@@ -400,6 +400,17 @@ class _SellsDetailsState extends State<SellsDetails> {
                           ),
                         ),
                       ),
+                      Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Text(
+                          "Attendant: ${widget.transaction.attendant ?? ""}",
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18.0,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                       SizedBox(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,

@@ -32,6 +32,7 @@ class _SellsPageState extends State<SellsPage> {
               discount: e.data()['discount'],
               balance: e.data()['balance'],
               time: e.data()['time'],
+              attendant: e.data()['attendant'],
             ),
           ),
         )
@@ -137,6 +138,7 @@ class _SellsPageState extends State<SellsPage> {
                                                     0.9
                                                 : double.maxFinite,
                                         child: Card(
+                                          elevation: 5.0,
                                           child: Padding(
                                             padding: const EdgeInsets.all(12.0),
                                             child: SizedBox(
@@ -148,7 +150,6 @@ class _SellsPageState extends State<SellsPage> {
                                               ),
                                             ),
                                           ),
-                                          elevation: 5.0,
                                         ),
                                       );
                                     },
@@ -230,6 +231,7 @@ class _SellsPageState extends State<SellsPage> {
                             discount: e.data()['discount'],
                             balance: e.data()['balance'],
                             time: e.data()['time'],
+                            attendant: e.data()['attendant'],
                           ),
                         )
                         .toList(),

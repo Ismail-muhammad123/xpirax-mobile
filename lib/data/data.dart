@@ -36,9 +36,11 @@ class TransactionData {
   late final num balance;
   late final num discount;
   late final Timestamp time;
+  late String? attendant;
 
   TransactionData({
     this.id,
+    this.attendant,
     required this.customerName,
     required this.customerAddress,
     required this.customerPhoneNumber,
@@ -61,6 +63,7 @@ class TransactionData {
     discount = data["discount"];
     balance = data["balance"];
     time = data["time"];
+    attendant = data["attendant"];
   }
 
   Map<String, dynamic> toJson() {
@@ -75,6 +78,7 @@ class TransactionData {
       "discount": discount,
       "balance": balance,
       "time": time,
+      "attendant": attendant,
     };
   }
 }

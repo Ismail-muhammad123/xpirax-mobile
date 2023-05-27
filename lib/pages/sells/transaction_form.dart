@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
@@ -395,6 +396,7 @@ class NewSellsPageState extends State<NewSellsPage> {
       amountPaid: double.parse(_amountPaidController.text.trim()),
       discount: double.parse(_discountController.text.trim()),
       balance: double.parse(_balanceController.text.trim()),
+      attendant: FirebaseAuth.instance.currentUser!.uid,
       time: Timestamp.now(),
     );
     setState(() {

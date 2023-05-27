@@ -1,37 +1,37 @@
 {
   "project_info": {
-    "project_number": "606419514484",
-    "project_id": "xpirax-app",
-    "storage_bucket": "xpirax-app.appspot.com"
+    "project_number": "186289199266",
+    "project_id": "shurafau-bf71a",
+    "storage_bucket": "shurafau-bf71a.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:606419514484:android:a26b7aaae37ad9a3a04d21",
+        "mobilesdk_app_id": "1:186289199266:android:62e9ee2d10eaaea4de1ffb",
         "android_client_info": {
           "package_name": "com.example.xpirax"
         }
       },
       "oauth_client": [
         {
-          "client_id": "606419514484-jifovah8vi92f0pf3j9fu9tbg2jgb3ts.apps.googleusercontent.com",
+          "client_id": "186289199266-udj6knupcki0p8do898anlr9u2uj3rmu.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyBMfadlZNyoh2mH0RqBFgSzJT0BMUjBwAM"
+          "current_key": "AIzaSyDC775DCza60GZJ4siDEYgV6Q8hUdNR5XA"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "606419514484-jifovah8vi92f0pf3j9fu9tbg2jgb3ts.apps.googleusercontent.com",
+              "client_id": "186289199266-udj6knupcki0p8do898anlr9u2uj3rmu.apps.googleusercontent.com",
               "client_type": 3
             },
             {
-              "client_id": "606419514484-b4i4ph981sj9l9fhacflba6sqrp087hp.apps.googleusercontent.com",
+              "client_id": "186289199266-ilqhg6ijp7igm8kcprj35u8qs1boph2i.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
                 "bundle_id": "com.example.xpirax"
