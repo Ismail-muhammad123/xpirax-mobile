@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:xpirax/data/data.dart';
+import 'package:xpirax/filters.dart';
 import 'package:xpirax/pages/sells/transaction_form.dart';
 import 'package:xpirax/pages/sells/sellsDetails.dart';
 
@@ -15,37 +16,7 @@ class SellsPage extends StatefulWidget {
 class _SellsPageState extends State<SellsPage> {
   final TextEditingController _searchController = TextEditingController();
 
-  Future<List<TransactionData>> _searchTransactions() async {
-    return await FirebaseFirestore.instance
-        .collection('transactions')
-        .get()
-        .then(
-          (value) => value.docs.map(
-            (e) => TransactionData(
-              id: e.id,
-              customerName: e.data()['customerName'],
-              customerAddress: e.data()['customerAddress'],
-              customerPhoneNumber: e.data()['customerPhoneNumber'],
-              customerEmail: e.data()['customerEmail'],
-              amount: e.data()['amount'],
-              amountPaid: e.data()['amountPaid'],
-              discount: e.data()['discount'],
-              balance: e.data()['balance'],
-              time: e.data()['time'],
-              attendant: e.data()['attendant'],
-            ),
-          ),
-        )
-        .then(
-          (value) => value
-              .where(
-                (element) => element.customerName.contains(
-                  _searchController.text.trim(),
-                ),
-              )
-              .toList(),
-        );
-  }
+  String searchText = "";
 
   @override
   void dispose() {
@@ -53,21 +24,82 @@ class _SellsPageState extends State<SellsPage> {
     super.dispose();
   }
 
+  DateTimeRange _sortDateRange =
+      DateTimeRange(start: DateTime.now(), end: DateTime.now());
+
+  _select(String val) async {
+    switch (val.toLowerCase()) {
+      case 'all':
+        setState(() {
+          _sortDateRange =
+              DateTimeRange(start: DateTime(2022), end: DateTime.now());
+        });
+        break;
+      case 'today':
+        setState(() {
+          _sortDateRange =
+              DateTimeRange(start: DateTime.now(), end: DateTime.now());
+        });
+        break;
+      case 'select':
+        var start = await showDatePicker(
+          context: context,
+          helpText: "Select Start Date",
+          initialDate: DateTime.now(),
+          firstDate: DateTime(2022),
+          lastDate: DateTime(2040),
+          currentDate: DateTime.now(),
+        );
+        var end = await showDatePicker(
+          context: context,
+          helpText: "Select End Date",
+          initialDate: DateTime.now(),
+          firstDate: DateTime(2022),
+          lastDate: DateTime(2040),
+          currentDate: DateTime.now(),
+        );
+
+        if (start != null && end != null) {
+          setState(
+            () => _sortDateRange = DateTimeRange(start: start, end: end),
+          );
+        }
+
+        break;
+      default:
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        title: const Text('Transactions'),
+        actions: [
+          PopupMenuButton(
+            icon: const Icon(Icons.calendar_month),
+            onSelected: _select,
+            padding: EdgeInsets.zero,
+            // initialValue: choices[_selection],
+            itemBuilder: (BuildContext context) {
+              return ['all', 'today', 'select'].map((String choice) {
+                return PopupMenuItem<String>(
+                  value: choice,
+                  child: Text(choice.toUpperCase()),
+                );
+              }).toList();
+            },
+          )
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => SellsForm(),
+            builder: (context) => const SellsForm(),
           ),
         ),
-        child: Icon(Icons.add),
-      ),
-      appBar: AppBar(
-        elevation: 0,
-        centerTitle: true,
-        title: const Text('Transactions Record'),
+        child: const Icon(Icons.add),
       ),
       body: Column(
         children: [
@@ -79,104 +111,33 @@ class _SellsPageState extends State<SellsPage> {
               children: [
                 Row(
                   children: [
-                    const Flexible(
+                    Flexible(
                       child: TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Search (Customer Name)',
+                        onChanged: (val) => setState(() {
+                          searchText = val;
+                        }),
+                        decoration: const InputDecoration(
+                          hintText: 'Search (ID)',
                           fillColor: Colors.white,
                           filled: true,
                         ),
                       ),
                     ),
                     const Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      padding: EdgeInsets.symmetric(horizontal: 4.0),
                     ),
                     MaterialButton(
-                      height: 55,
-                      onPressed: () => showDialog(
-                        context: context,
-                        builder: (context) => Dialog(
-                          child: Flexible(
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.vertical,
-                              child: Column(
-                                children: [
-                                  Container(
-                                    color: Colors.teal,
-                                    width: double.maxFinite,
-                                    height: 50.0,
-                                    alignment: Alignment.center,
-                                    child: const Text('Search results'),
-                                  ),
-                                  FutureBuilder<List<TransactionData>>(
-                                    future: _searchTransactions(),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return const Center(
-                                          child: CircularProgressIndicator(),
-                                        );
-                                      }
-
-                                      if (!snapshot.hasData ||
-                                          snapshot.data!.isEmpty) {
-                                        return const Padding(
-                                          padding: EdgeInsets.all(8.0),
-                                          child: Center(
-                                            child: Text("No Records Found"),
-                                          ),
-                                        );
-                                      }
-
-                                      return SizedBox(
-                                        width:
-                                            MediaQuery.of(context).size.width >
-                                                    600
-                                                ? MediaQuery.of(context)
-                                                        .size
-                                                        .width *
-                                                    0.9
-                                                : double.maxFinite,
-                                        child: Card(
-                                          elevation: 5.0,
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(12.0),
-                                            child: SizedBox(
-                                              width: double.maxFinite,
-                                              child: Center(
-                                                child: SellsRecord(
-                                                  data: snapshot.data!,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      height: 50,
+                      onPressed: () => setState(() {
+                        searchText = "";
+                        _searchController.clear();
+                      }),
                       color: Colors.teal,
                       child: Row(
                         children: const [
                           Icon(
-                            Icons.search,
+                            Icons.clear,
                             color: Colors.white,
-                          ),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 4.0),
-                          ),
-                          Text(
-                            'Search',
-                            style: TextStyle(
-                              fontSize: 18.0,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
                           ),
                         ],
                       ),
@@ -187,57 +148,54 @@ class _SellsPageState extends State<SellsPage> {
             ),
           ),
           Flexible(
-            child: SingleChildScrollView(
-              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: FirebaseFirestore.instance
-                    .collection('transactions')
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: Colors.tealAccent,
-                      ),
-                    );
-                  }
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .collection('transactions')
+                  .orderBy('time', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.tealAccent,
+                    ),
+                  );
+                }
 
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const SizedBox(
-                      height: 500,
-                      child: Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Center(
-                          child: Text(
-                            'No Transactions yet.',
-                            style: TextStyle(fontSize: 18.0),
-                            softWrap: true,
-                          ),
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const SizedBox(
+                    height: 500,
+                    child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Center(
+                        child: Text(
+                          'No Transactions yet.',
+                          style: TextStyle(fontSize: 18.0),
+                          softWrap: true,
                         ),
                       ),
-                    );
-                  }
-                  return SellsRecord(
-                    data: snapshot.data!.docs
-                        .map(
-                          (e) => TransactionData(
-                            id: e.id,
-                            customerName: e.data()['customerName'],
-                            customerAddress: e.data()['customerAdress'],
-                            customerPhoneNumber:
-                                e.data()['customerPhoneNumber'],
-                            customerEmail: e.data()['customerEmail'],
-                            amount: e.data()['amount'],
-                            amountPaid: e.data()['amountPaid'],
-                            discount: e.data()['discount'],
-                            balance: e.data()['balance'],
-                            time: e.data()['time'],
-                            attendant: e.data()['attendant'],
-                          ),
-                        )
-                        .toList(),
+                    ),
                   );
-                },
-              ),
+                }
+                return SellsRecord(
+                  data: snapshot.data!.docs
+                      .map((e) {
+                        var t = TransactionData.fromJson(e.data());
+                        t.id = e.id;
+                        return t;
+                      })
+                      .where((e) => passedDateFilter(e.time, _sortDateRange))
+                      .where(
+                        (element) =>
+                            element.id!
+                                .toLowerCase()
+                                .contains(searchText.trim().toLowerCase()) ||
+                            element.serialNumber.toString() ==
+                                searchText.trim(),
+                      )
+                      .toList(),
+                );
+              },
             ),
           ),
         ],
@@ -257,60 +215,34 @@ class SellsRecord extends StatefulWidget {
 class _SellsRecordState extends State<SellsRecord> {
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints:
-            BoxConstraints(minWidth: MediaQuery.of(context).size.width - 100),
-        child: DataTable(
-          columnSpacing: 16.0,
-          headingTextStyle: const TextStyle(
-            color: Colors.teal,
-            fontWeight: FontWeight.bold,
-          ),
-          columns: const [
-            DataColumn(label: Text('Customer Name')),
-            DataColumn(label: Text('Amount')),
-            DataColumn(label: Text('Date')),
-            DataColumn(label: Text('ACTIONS')),
-          ],
-          rows: widget.data
-              .map(
-                (e) => DataRow(
-                  cells: [
-                    DataCell(Text(
-                      e.customerName,
-                      textAlign: TextAlign.center,
-                    )),
-                    DataCell(Text(
-                      e.amount.toString(),
-                      textAlign: TextAlign.center,
-                    )),
-                    DataCell(Text(
-                      DateFormat("d/M/y").format(
-                        e.time.toDate(),
-                      ),
-                      textAlign: TextAlign.center,
-                    )),
-                    DataCell(
-                      MaterialButton(
-                        color: Colors.teal,
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => SellsDetails(
-                              transaction: e,
-                            ),
-                          ),
-                        ),
-                        child: const Text("VIEW"),
-                      ),
+    return ListView.builder(
+      itemCount: widget.data.length,
+      itemBuilder: (context, index) {
+        var e = widget.data[index];
+        return Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: Card(
+            child: ListTile(
+              title: Text(
+                  "#${e.serialNumber != null ? e.serialNumber.toString().padLeft(7, "0") : e.id}"),
+              subtitle: Text(
+                DateFormat('yMMMMEEEEd').add_jm().format(
+                      e.time.toDate(),
                     ),
-                  ],
+              ),
+              trailing:
+                  Text("NGN ${NumberFormat('###,###,###').format(e.amount)}"),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => SellsDetails(
+                    transaction: e,
+                  ),
                 ),
-              )
-              .toList(),
-        ),
-      ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

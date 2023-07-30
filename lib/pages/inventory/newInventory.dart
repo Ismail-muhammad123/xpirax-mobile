@@ -16,7 +16,9 @@ class NewInventoryPage extends StatefulWidget {
 class _NewInventoryPageState extends State<NewInventoryPage> {
   List<InventoryData> itemsAdded = [];
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _minPriceController = TextEditingController();
+  final TextEditingController _maxPriceController = TextEditingController();
+  final TextEditingController _costController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _totalAmountController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
@@ -25,7 +27,8 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
   final uuid = const Uuid();
 
   _updateTotalAmount() {
-    var pric = _priceController.text.isNotEmpty ? _priceController.text : '0';
+    var pric =
+        _maxPriceController.text.isNotEmpty ? _maxPriceController.text : '0';
     var quant =
         _quantityController.text.isNotEmpty ? _quantityController.text : '0';
     _totalAmountController.text =
@@ -41,9 +44,9 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
   }
 
   _priceCanged(String char) {
-    _priceController.text = char;
-    _priceController.selection = TextSelection.fromPosition(
-      TextPosition(offset: _priceController.text.length),
+    _maxPriceController.text = char;
+    _maxPriceController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _maxPriceController.text.length),
     );
     _updateTotalAmount();
   }
@@ -53,15 +56,20 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
       _quantityController.text = 1.toString();
     }
     if (_nameController.value.text.isNotEmpty &&
-        _priceController.value.text.isNotEmpty) {
+        _minPriceController.value.text.isNotEmpty &&
+        _maxPriceController.value.text.isNotEmpty) {
       var item = InventoryData(
         description: _descriptionController.text,
         name: _nameController.value.text,
-        availableQuantity: int.parse(_quantityController.value.text),
-        price: double.parse(_priceController.value.text),
+        available_quantity: double.parse(_quantityController.value.text),
+        minPrice: double.parse(_maxPriceController.value.text),
+        maxPrice: double.parse(_minPriceController.value.text),
+        cost: double.parse(_costController.value.text),
       );
       _nameController.clear();
-      _priceController.clear();
+      _maxPriceController.clear();
+      _minPriceController.clear();
+      _costController.clear();
       _totalAmountController.clear();
       _descriptionController.clear();
       _quantityController.clear();
@@ -89,14 +97,17 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
       _quantityController.text = 1.toString();
     }
     if (_nameController.value.text.isNotEmpty &&
-        _priceController.value.text.isNotEmpty) {
+        _maxPriceController.value.text.isNotEmpty &&
+        _minPriceController.value.text.isNotEmpty) {
       setState(() => saving = true);
       InventoryData obj = InventoryData(
         id: widget.data!.id,
         name: _nameController.value.text,
         description: _descriptionController.text,
-        availableQuantity: int.parse(_quantityController.value.text),
-        price: double.parse(_priceController.value.text),
+        available_quantity: double.parse(_quantityController.value.text),
+        minPrice: double.parse(_minPriceController.value.text),
+        maxPrice: double.parse(_maxPriceController.value.text),
+        cost: double.parse(_costController.value.text),
       );
       FirebaseFirestore.instance
           .collection('inventory')
@@ -111,10 +122,49 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
     }
   }
 
+  _deleteInventory(String id) async {
+    setState(() {
+      saving = true;
+    });
+    var res = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.dangerous),
+        content: const Text(
+            "Are you sure you want to delete this item from inventory?"),
+        actions: [
+          MaterialButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            color: Colors.grey,
+            child: const Text("NO"),
+          ),
+          MaterialButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            color: const Color.fromARGB(255, 253, 17, 0),
+            child: const Text("YES"),
+          ),
+        ],
+      ),
+    );
+    if (res) {
+      await FirebaseFirestore.instance.collection('inventory').doc(id).delete();
+      setState(() {
+        saving = false;
+      });
+      Navigator.of(context).pop();
+    }
+    setState(() {
+      saving = false;
+    });
+    return;
+  }
+
   @override
   void dispose() {
     super.dispose();
-    _priceController.dispose();
+    _minPriceController.dispose();
+    _maxPriceController.dispose();
+    _costController.dispose();
     _quantityController.dispose();
     _descriptionController.dispose();
     _nameController.dispose();
@@ -127,8 +177,10 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
   Widget build(BuildContext context) {
     if (widget.data != null) {
       var d = widget.data!;
-      _priceController.text = d.price.toString();
-      _quantityController.text = d.availableQuantity.toString();
+      _minPriceController.text = d.minPrice.toString();
+      _maxPriceController.text = d.maxPrice.toString();
+      _costController.text = d.cost.toString();
+      _quantityController.text = d.available_quantity.toString();
       _nameController.text = d.name;
       _descriptionController.text = d.description;
       editing = true;
@@ -185,21 +237,56 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
                       padding: const EdgeInsets.all(8.0),
                       child: Row(
                         children: [
-                          Expanded(
+                          Flexible(
                             child: TextFormField(
                               inputFormatters: <TextInputFormatter>[
                                 FilteringTextInputFormatter.digitsOnly,
                               ],
-                              controller: _priceController,
+                              controller: _costController,
                               keyboardType: TextInputType.number,
                               onChanged: editing ? null : _priceCanged,
                               decoration: const InputDecoration(
-                                labelText: 'Price',
+                                labelText: 'Cost',
                                 icon: Icon(Icons.price_change),
                               ),
                             ),
                           ),
-                          Expanded(
+                          Flexible(
+                            child: TextFormField(
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              controller: _minPriceController,
+                              keyboardType: TextInputType.number,
+                              onChanged: editing ? null : _priceCanged,
+                              decoration: const InputDecoration(
+                                labelText: 'Min Price',
+                                icon: Icon(Icons.price_change),
+                              ),
+                            ),
+                          ),
+                          Flexible(
+                            child: TextFormField(
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              controller: _maxPriceController,
+                              keyboardType: TextInputType.number,
+                              onChanged: editing ? null : _priceCanged,
+                              decoration: const InputDecoration(
+                                labelText: 'Max Price',
+                                icon: Icon(Icons.price_change),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(9),
+                      child: Row(
+                        children: [
+                          Flexible(
                             child: TextFormField(
                               controller: _quantityController,
                               keyboardType: TextInputType.number,
@@ -213,57 +300,109 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
                               ),
                             ),
                           ),
+                          Flexible(
+                            child: !editing
+                                ? Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: TextFormField(
+                                      controller: _totalAmountController,
+                                      decoration: const InputDecoration(
+                                        enabled: false,
+                                        labelText: 'Total Amount',
+                                        icon: Icon(Icons.calculate),
+                                      ),
+                                    ),
+                                  )
+                                : Container(),
+                          ),
                         ],
                       ),
                     ),
-                    !editing
-                        ? Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: TextFormField(
-                              controller: _totalAmountController,
-                              decoration: const InputDecoration(
-                                enabled: false,
-                                labelText: 'Total Amount',
-                                icon: Icon(Icons.calculate),
-                              ),
-                            ),
-                          )
-                        : Container(),
                     editing
-                        ? Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: MaterialButton(
-                              minWidth: double.maxFinite,
-                              height: 50.0,
-                              color: Colors.teal,
-                              onPressed: saving ? null : _updateInventory,
-                              child: saving
-                                  ? const Center(
-                                      child: CircularProgressIndicator(),
-                                    )
-                                  : Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: const [
-                                        Icon(
-                                          Icons.update,
-                                          color: Colors.white,
-                                        ),
-                                        Padding(
-                                          padding: EdgeInsets.all(8.0),
-                                          child: Text(
-                                            'Update',
-                                            style: TextStyle(
-                                              fontSize: 18.0,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.white,
+                        ? saving
+                            ? const CircularProgressIndicator()
+                            : Row(
+                                children: [
+                                  Flexible(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: MaterialButton(
+                                        minWidth: double.maxFinite,
+                                        height: 50.0,
+                                        color: Colors.teal,
+                                        onPressed:
+                                            saving ? null : _updateInventory,
+                                        child: saving
+                                            ? const Center(
+                                                child:
+                                                    CircularProgressIndicator(),
+                                              )
+                                            : Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: const [
+                                                  Icon(
+                                                    Icons.update,
+                                                    color: Colors.white,
+                                                  ),
+                                                  Padding(
+                                                    padding:
+                                                        EdgeInsets.all(8.0),
+                                                    child: Text(
+                                                      'Update',
+                                                      style: TextStyle(
+                                                        fontSize: 18.0,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                      ),
+                                    ),
+                                  ),
+                                  widget.data!.id != null
+                                      ? Flexible(
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: MaterialButton(
+                                              minWidth: double.maxFinite,
+                                              height: 50.0,
+                                              color: const Color.fromARGB(
+                                                  255, 245, 16, 0),
+                                              onPressed: () => _deleteInventory(
+                                                  widget.data!.id!),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: const [
+                                                  Icon(
+                                                    Icons.delete,
+                                                    color: Colors.white,
+                                                  ),
+                                                  Padding(
+                                                    padding:
+                                                        EdgeInsets.all(8.0),
+                                                    child: Text(
+                                                      'Delete',
+                                                      style: TextStyle(
+                                                        fontSize: 18.0,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                            ),
-                          )
+                                        )
+                                      : const SizedBox(),
+                                ],
+                              )
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
@@ -318,15 +457,19 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
                                     case 1:
                                       setState(
                                         () {
-                                          _priceController.text =
-                                              e.price.toString();
+                                          _minPriceController.text =
+                                              e.minPrice.toString();
+                                          _maxPriceController.text =
+                                              e.maxPrice.toString();
+                                          _costController.text =
+                                              e.cost.toString();
                                           _descriptionController.text =
                                               e.description;
                                           _nameController.text = e.name;
                                           _quantityController.text =
-                                              e.availableQuantity.toString();
-                                          itemsAdded.removeWhere(
-                                              (element) => element == e);
+                                              e.available_quantity.toString();
+                                          itemsAdded.removeWhere((element) =>
+                                              element.name == e.name);
                                         },
                                       );
                                       break;
@@ -337,9 +480,9 @@ class _NewInventoryPageState extends State<NewInventoryPage> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Quantity: ${e.availableQuantity}'),
+                                  Text('Quantity: ${e.available_quantity}'),
                                   Text(
-                                      'Total Amount: ${e.price * e.availableQuantity}')
+                                      'Total Amount: ${e.maxPrice * e.available_quantity}')
                                 ],
                               ),
                             ),

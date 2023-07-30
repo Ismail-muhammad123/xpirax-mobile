@@ -284,53 +284,49 @@ class _SellsDetailsState extends State<SellsDetails> {
     return contents;
   }
 
-  @override
-  void initState() {
+  _fetchSoldItems() async {
     // get company name and other info
-    FirebaseFirestore.instance
-        .collection('profile')
-        .get()
-        .then((value) => setState(() => companyInfo = value.docs.first.data()));
-    // get sold items
-    FirebaseFirestore.instance
+
+    var profiles = await FirebaseFirestore.instance.collection('profile').get();
+    setState(() => companyInfo = profiles.docs.first.data()); // get sold items
+    var sales = await FirebaseFirestore.instance
         .collection('sales')
         .where('transactionUid', isEqualTo: widget.transaction.id)
-        .get()
-        .then(
-          (value) => setState(
-            () => soldItems = value.docs
-                .map(
-                  (e) => SoldItem(
-                    name: e.data()['name'],
-                    quantity: e.data()['quantity'],
-                    price: e.data()['price'],
-                    amount: e.data()['amount'],
-                    salesTime: e.data()['salesTime'],
-                  ),
-                )
-                .toList(),
-          ),
-        );
+        .get();
+    setState(
+      () => soldItems = sales.docs
+          .map(
+            (e) => SoldItem.fromJson(e.data()),
+          )
+          .toList(),
+    );
+  }
+
+  @override
+  void initState() {
     super.initState();
+    _fetchSoldItems();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton:
-          Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-        FloatingActionButton(
-          heroTag: 'Download Reciept',
-          onPressed: () async => _downloadRecieptPDF(widget.transaction.id),
-          child: const Icon(Icons.download),
-        ),
-        const SizedBox(height: 10.0),
-        FloatingActionButton(
-          heroTag: 'Print Reciept',
-          onPressed: () async => _printReciept(),
-          child: const Icon(Icons.print),
-        ),
-      ]),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: 'Download Reciept',
+            onPressed: () async => _downloadRecieptPDF(widget.transaction.id),
+            child: const Icon(Icons.image),
+          ),
+          const SizedBox(height: 10.0),
+          FloatingActionButton(
+            heroTag: 'Print Reciept',
+            onPressed: () async => _printReciept(),
+            child: const Icon(Icons.print),
+          ),
+        ],
+      ),
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -390,7 +386,7 @@ class _SellsDetailsState extends State<SellsDetails> {
                         ),
                       ),
                       const Padding(
-                        padding: EdgeInsets.all(8.0),
+                        padding: EdgeInsets.all(3.0),
                         child: Text(
                           "Transaction Reciept",
                           textAlign: TextAlign.center,
@@ -401,9 +397,20 @@ class _SellsDetailsState extends State<SellsDetails> {
                         ),
                       ),
                       Padding(
-                        padding: EdgeInsets.all(8.0),
+                        padding: const EdgeInsets.all(3.0),
                         child: Text(
                           "Attendant: ${widget.transaction.attendant ?? ""}",
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18.0,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.all(3.0),
+                        child: Text(
+                          "ID: #${widget.transaction.serialNumber != null ? widget.transaction.serialNumber.toString().padLeft(7, "0") : widget.transaction.id}",
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 18.0,
@@ -473,209 +480,166 @@ class _SellsDetailsState extends State<SellsDetails> {
                                 ],
                               ),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12.0),
-                            ),
-                            Container(
-                              alignment: Alignment.center,
-                              color: Colors.teal,
-                              padding: const EdgeInsets.all(8.0),
-                              width: double.maxFinite,
-                              child: Text(
-                                'Items Bought'.toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 20.0,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                            Center(
-                              child: DataTable(
-                                headingRowHeight: 35,
-                                dataRowHeight: 25.0,
-                                columnSpacing: 15.0,
-                                dataTextStyle: const TextStyle(
-                                  fontSize: 14.0,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.black,
-                                ),
-                                headingTextStyle: const TextStyle(
-                                  fontSize: 16.0,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.teal,
-                                ),
-                                columns: ['name', 'price', 'Qty', 'amount']
-                                    .map(
-                                      (e) => DataColumn(
-                                        label: Text(e.toUpperCase()),
-                                      ),
-                                    )
-                                    .toList(),
-                                rows: soldItems
-                                    .map(
-                                      (e) => DataRow(
-                                        cells: [
-                                          DataCell(
-                                            SizedBox(
-                                              width: 100.0,
-                                              child: Text(e.name),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Text(
-                                              NumberFormat('###,###,###')
-                                                  .format(e.price),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Text(
-                                              NumberFormat('###,###,###')
-                                                  .format(e.quantity),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Text(
-                                              NumberFormat('###,###,###')
-                                                  .format(e.price * e.quantity),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12.0),
-                            ),
-                            Container(
-                              alignment: Alignment.center,
-                              color: Colors.teal,
-                              padding: const EdgeInsets.all(8.0),
-                              width: double.maxFinite,
-                              child: Text(
-                                'Payment'.toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 20.0,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.only(top: 12.0),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text('Transaction ID:'),
-                                      SizedBox(
-                                        width: 180,
-                                        child: Text(
-                                          widget.transaction.id ?? "...",
-                                          textAlign: TextAlign.end,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text('Date:'),
-                                      Text(DateFormat.yMMMMEEEEd()
-                                          .format(
-                                            widget.transaction.time.toDate(),
-                                          )
-                                          .toString()),
-                                    ],
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text('Time:'),
-                                      Text(DateFormat()
-                                          .add_jm()
-                                          .format(
-                                            widget.transaction.time.toDate(),
-                                          )
-                                          .toString()),
-                                    ],
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text('Amount:'),
-                                      Text(
-                                        NumberFormat('###,###,###')
-                                            .format(widget.transaction.amount),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text('Discound:'),
-                                      Text(
-                                        NumberFormat('###,###,###').format(
-                                            widget.transaction.discount),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text('Total Amount:'),
-                                      Text(
-                                        NumberFormat('###,###,###').format(
-                                            widget.transaction.amount -
-                                                widget.transaction.discount),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text('Amount Paid'),
-                                      Text(
-                                        NumberFormat('###,###,###').format(
-                                            widget.transaction.amountPaid),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text('Balance'),
-                                      Text(
-                                        NumberFormat('###,###,###')
-                                            .format(widget.transaction.balance),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 22.0)),
                           ],
                         ),
                       ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12.0),
+                      ),
+                      Container(
+                        alignment: Alignment.center,
+                        color: Colors.teal,
+                        padding: const EdgeInsets.all(8.0),
+                        width: double.maxFinite,
+                        child: Text(
+                          'Items Bought'.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 20.0,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      Center(
+                        child: DataTable(
+                          headingRowHeight: 35,
+                          columnSpacing: 15.0,
+                          dataTextStyle: const TextStyle(
+                            fontSize: 14.0,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black,
+                          ),
+                          headingTextStyle: const TextStyle(
+                            fontSize: 16.0,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.teal,
+                          ),
+                          columns: ['name', 'price', 'Qty', 'amount']
+                              .map(
+                                (e) => DataColumn(
+                                  label: Text(e.toUpperCase()),
+                                ),
+                              )
+                              .toList(),
+                          rows: soldItems
+                              .map(
+                                (e) => DataRow(
+                                  cells: [
+                                    DataCell(
+                                      SizedBox(
+                                        child: Text(
+                                          e.name,
+                                          softWrap: true,
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        NumberFormat('###,###,###')
+                                            .format(e.price),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        NumberFormat('###,###,###')
+                                            .format(e.quantity),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        NumberFormat('###,###,###')
+                                            .format(e.price * e.quantity),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12.0),
+                      ),
+                      Container(
+                        alignment: Alignment.center,
+                        color: Colors.teal,
+                        padding: const EdgeInsets.all(8.0),
+                        width: double.maxFinite,
+                        child: Text(
+                          'Payment'.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 20.0,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 12.0),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Date:'),
+                                Text(DateFormat.yMMMMEEEEd()
+                                    .format(
+                                      widget.transaction.time.toDate(),
+                                    )
+                                    .toString()),
+                              ],
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Time:'),
+                                Text(DateFormat()
+                                    .add_jm()
+                                    .format(
+                                      widget.transaction.time.toDate(),
+                                    )
+                                    .toString()),
+                              ],
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Amount:'),
+                                Text(
+                                  NumberFormat('###,###,###')
+                                      .format(widget.transaction.amount),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Amount Paid'),
+                                Text(
+                                  NumberFormat('###,###,###')
+                                      .format(widget.transaction.amountPaid),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Balance'),
+                                Text(
+                                  NumberFormat('###,###,###')
+                                      .format(widget.transaction.balance),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 22.0)),
                     ],
                   ),
                 ),

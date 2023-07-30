@@ -1,16 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:uuid/uuid.dart';
+import 'package:intl/intl.dart';
+import 'package:xpirax/data/data.dart';
 import 'package:xpirax/pages/sells/sellsDetails.dart';
-import '../../data/data.dart';
+import 'package:uuid/uuid.dart';
+
+import 'package:provider/provider.dart';
 
 class SellsForm extends StatefulWidget {
   final TransactionData? trx;
+  final List<SoldItem>? transactionItems;
   const SellsForm({
     Key? key,
     this.trx,
+    this.transactionItems,
   }) : super(key: key);
 
   @override
@@ -36,14 +42,11 @@ class _SellsFormState extends State<SellsForm> {
           if (snapshot.hasData) {
             return NewSellsPage(
               inventoryData: snapshot.data!.docs
-                  .map((e) => InventoryData(
-                      name: e.data()['name'],
-                      description: e.data()['description'],
-                      availableQuantity: e.data()['available_quantity'],
-                      price: e.data()['price']))
-                  .where((element) => element.availableQuantity > 0)
+                  .map((e) => InventoryData.fromMap(e.data()))
+                  .where((element) => element.available_quantity > 0)
                   .toList(),
               transaction: widget.trx,
+              items: widget.transactionItems,
             );
           }
 
@@ -74,10 +77,12 @@ class _SellsFormState extends State<SellsForm> {
 class NewSellsPage extends StatefulWidget {
   final List<InventoryData> inventoryData;
   final TransactionData? transaction;
+  final List<SoldItem>? items;
   const NewSellsPage({
     Key? key,
     required this.inventoryData,
     this.transaction,
+    this.items,
   }) : super(key: key);
 
   @override
@@ -85,14 +90,23 @@ class NewSellsPage extends StatefulWidget {
 }
 
 class NewSellsPageState extends State<NewSellsPage> {
-  String name = '';
+  String itemName = '';
+  double maxPrice = 0;
+  double minPrice = 0;
   List<InventoryData> inventoryItems = [];
   List<SoldItem> addedItems = [];
-  bool _saving = false;
 
-  String transactionUid = const Uuid().v4();
+  int transactionID = 0;
 
-  _getEditabeItems(data) => setState(() => addedItems = data);
+  _getEditabeItems() async {
+    var items = await FirebaseFirestore.instance
+        .collection('sales')
+        .where('transactionUid', isEqualTo: widget.transaction!.id!)
+        .get();
+    setState(() {
+      addedItems = items.docs.map((e) => SoldItem.fromJson(e.data())).toList();
+    });
+  }
 
   @override
   void initState() {
@@ -100,12 +114,15 @@ class NewSellsPageState extends State<NewSellsPage> {
     inventoryItems.addAll(widget.inventoryData);
 
     if (inventoryItems.isNotEmpty) {
-      name = inventoryItems.first.name;
-      _priceController.text = inventoryItems.first.price.toString();
+      itemName = inventoryItems.first.name;
+      _priceController.text = inventoryItems.first.maxPrice.toString();
     }
 
     if (widget.transaction != null) {
+      _editing = true;
+
       var trx = widget.transaction!;
+      // _transactionID = trx!.id;
 
       _customerNameController.text = trx.customerName;
       _addressController.text = trx.customerAddress;
@@ -115,63 +132,73 @@ class NewSellsPageState extends State<NewSellsPage> {
       _amountPaidController.text = trx.amountPaid.toString();
 
       _balanceController.text = trx.balance.toString();
-      totalAmount = (trx.amount).toDouble() + trx.discount;
+      totalAmount = trx.amount;
 
-      _equivalentAmount.text = (trx.amount + trx.discount).toString();
-      _discountController.text = trx.discount.toString();
-      _discountChanged(trx.discount.toString());
-      FirebaseFirestore.instance
-          .collection('sales')
-          .where('transactionUid', isEqualTo: widget.transaction!.id!)
-          .get()
-          .then(
-            (value) => _getEditabeItems(
-              value.docs.map(
-                (e) => SoldItem(
-                  name: e.data()['name'],
-                  quantity: e.data()['quantity'],
-                  price: e.data()['price'],
-                  amount: e.data()['amount'],
-                  salesTime: e.data()['salesTime'],
-                ),
-              ),
-            ),
-          );
+      _equivalentAmount.text = trx.amount.toString();
+
+      _posController.text = trx.pos.toString();
+      _transferController.text = trx.transfer.toString();
+      _cashController.text = trx.cash.toString();
+      _amountPaidController.text = trx.amountPaid.toString();
+      addedItems.addAll(widget.items ?? []);
+
+      _getEditabeItems();
     } else {
       _amountPaidController.text = "0";
-      _discountController.text = '0';
+      FirebaseFirestore.instance
+          .collection('transactions')
+          .orderBy('time')
+          .get()
+          .then(
+            (value) => setState(() =>
+                transactionID = value.docs.last.data()['serial number'] ?? 0),
+          );
     }
   }
 
   // input controllers
   final TextEditingController _priceController = TextEditingController();
-  final TextEditingController _totalAmountController = TextEditingController();
+  final TextEditingController _totalAmountController =
+      TextEditingController(text: "0");
   final TextEditingController _quantityController = TextEditingController();
-  final TextEditingController _equivalentAmount = TextEditingController();
-  final TextEditingController _discountController = TextEditingController();
-  final TextEditingController _paymentAmountController =
-      TextEditingController();
-  final TextEditingController _amountPaidController = TextEditingController();
-  final TextEditingController _balanceController = TextEditingController();
+  final TextEditingController _equivalentAmount =
+      TextEditingController(text: "0");
+  final TextEditingController _amountPaidController =
+      TextEditingController(text: "0");
+  final TextEditingController _balanceController =
+      TextEditingController(text: "0");
   final TextEditingController _customerNameController = TextEditingController();
   final TextEditingController _numberCOntroller = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _emailCOntroller = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _posController = TextEditingController(text: "0");
+  final TextEditingController _transferController =
+      TextEditingController(text: "0");
+  final TextEditingController _cashController =
+      TextEditingController(text: "0");
+
+  final uid = const Uuid();
+
+  bool _editing = false;
+
+  bool _processing = false;
 
   double totalAmount = 0;
   double payableamount = 0;
+  String _searchText = "";
 
   _addItem() {
     if (_quantityController.text.isNotEmpty) {
       var selected =
-          inventoryItems.where((element) => element.name == name).first;
-      if (selected.availableQuantity <
+          inventoryItems.where((element) => element.name == itemName).first;
+      if (selected.available_quantity <
           double.parse(_quantityController.text.trim())) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
             title: Row(
-              children: [
+              children: const [
                 Icon(Icons.error),
                 Padding(padding: EdgeInsets.symmetric(horizontal: 6.0)),
                 Text("Alert"),
@@ -181,29 +208,54 @@ class NewSellsPageState extends State<NewSellsPage> {
               MaterialButton(
                 onPressed: () => Navigator.of(context).pop(),
                 color: Colors.blue,
-                child: Text("OK"),
+                child: const Text("OK"),
               ),
             ],
-            content: Text(
-                "The quantity selected for this item is greater that what is available in Stock!"),
+            content: const Text(
+              "The quantity selected for this item is greater that what is available in Stock!",
+            ),
           ),
         );
         return;
       }
+      if (double.parse(_priceController.text.trim()) < minPrice ||
+          double.parse(_priceController.text.trim()) > maxPrice) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: const [
+                Icon(Icons.error),
+                Padding(padding: EdgeInsets.symmetric(horizontal: 6.0)),
+                Text("Alert"),
+              ],
+            ),
+            actions: [
+              MaterialButton(
+                onPressed: () => Navigator.of(context).pop(),
+                color: Colors.blue,
+                child: const Text("OK"),
+              ),
+            ],
+            content: const Text(
+              "Invalid Price",
+            ),
+          ),
+        );
+        setState(() => _priceController.text = maxPrice.toString());
+        return;
+      }
       try {
+        double price = double.parse(_priceController.text.trim());
         var obj = SoldItem(
           name: selected.name,
-          quantity: int.parse(_quantityController.text),
+          quantity: double.parse(_quantityController.text),
           price: double.parse(_priceController.text.trim()),
-          transactionID:
-              widget.transaction != null ? widget.transaction!.id : null,
-          amount: double.parse(_priceController.text.trim()) *
-              int.parse(_quantityController.text),
+          amount: price * double.parse(_quantityController.text.trim()),
           salesTime: Timestamp.now(),
-          // item quantity
         );
 
-        if (addedItems.contains(obj)) {
+        if (addedItems.any((e) => e.name == obj.name)) {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
@@ -224,31 +276,25 @@ class NewSellsPageState extends State<NewSellsPage> {
           );
           return;
         }
-
         List<SoldItem> items = [];
-
         items.add(obj);
 
-        var discount = _discountController.text.isNotEmpty
-            ? _discountController.text
-            : '0';
         var paid = _amountPaidController.text.isNotEmpty
             ? _amountPaidController.text
             : '0';
 
         setState(() {
           addedItems = addedItems + items;
-          totalAmount = totalAmount +
-              (selected.price * int.parse(_quantityController.text)) -
-              double.parse(_discountController.text);
+          totalAmount =
+              totalAmount + (price * double.parse(_quantityController.text));
           _equivalentAmount.text = totalAmount.toString();
           _quantityController.clear();
-          _paymentAmountController.text =
-              (totalAmount - double.parse(discount)).toString();
           _balanceController.text =
-              (totalAmount - double.parse(discount) - double.parse(paid))
-                  .toString();
+              (totalAmount - double.parse(paid)).toString();
+          _searchController.text = "";
+          _searchText = "";
         });
+        _populateInventoryList();
       } catch (e) {
         showDialog(
           context: context,
@@ -271,15 +317,15 @@ class NewSellsPageState extends State<NewSellsPage> {
     }
   }
 
-  _removeItem(String name) {
+  _removeItem(SoldItem item) {
     List<SoldItem> items = addedItems;
-    items.removeWhere((element) => element.name == name);
+    items.removeWhere((element) =>
+        element.name == item.name && element.salesTime == item.salesTime);
     double total = 0;
     for (var element in items) {
-      total = total + (element.price * element.quantity);
+      total = total + element.amount;
     }
-    var discount =
-        _discountController.text.isNotEmpty ? _discountController.text : '0';
+
     var paid = _amountPaidController.text.isNotEmpty
         ? _amountPaidController.text
         : '0';
@@ -287,23 +333,19 @@ class NewSellsPageState extends State<NewSellsPage> {
       addedItems = items;
       totalAmount = total;
       _equivalentAmount.text = totalAmount.toString();
-      _paymentAmountController.text =
-          (totalAmount - double.parse(discount)).toString();
-      _balanceController.text =
-          (totalAmount - double.parse(discount) - double.parse(paid))
-              .toString();
+      _balanceController.text = (totalAmount - double.parse(paid)).toString();
     });
   }
 
   _editAdded(SoldItem obj) {
     List<SoldItem> items = addedItems;
-    items.removeWhere((element) => element.name == obj.name);
+    items.removeWhere((element) =>
+        element.name == obj.name && element.salesTime == obj.salesTime);
     double total = 0;
     for (var element in items) {
-      total = total + (element.price * element.quantity);
+      total = total + element.amount;
     }
-    var discount =
-        _discountController.text.isNotEmpty ? _discountController.text : '0';
+
     var paid = _amountPaidController.text.isNotEmpty
         ? _amountPaidController.text
         : '0';
@@ -311,132 +353,295 @@ class NewSellsPageState extends State<NewSellsPage> {
       addedItems = items;
       totalAmount = total;
       _equivalentAmount.text = totalAmount.toString();
-      name = obj.name;
+      itemName = obj.name;
       _priceController.text = obj.price.toString();
       _quantityController.text = obj.quantity.toString();
-      _paymentAmountController.text =
-          (totalAmount - double.parse(discount)).toString();
-      _balanceController.text =
-          (totalAmount - double.parse(discount) - double.parse(paid))
-              .toString();
+      _balanceController.text = (totalAmount - double.parse(paid)).toString();
     });
   }
 
   _paidChanged(val) {
-    var discount =
-        _discountController.text.isNotEmpty ? _discountController.text : '0';
-    var paid = _amountPaidController.text.isNotEmpty ? val : '0';
+    var paid = (double.tryParse(_posController.text.trim()) ?? 0) +
+        (double.tryParse(_cashController.text.trim()) ?? 0) +
+        (double.tryParse(_transferController.text.trim()) ?? 0);
 
     setState(() {
-      _paymentAmountController.text =
-          (totalAmount - double.parse(discount)).toString();
-      _balanceController.text =
-          (totalAmount - double.parse(discount) - double.parse(paid))
-              .toString();
+      _balanceController.text = (totalAmount - paid).toString();
+      _amountPaidController.text = paid.toString();
     });
   }
 
-  _discountChanged(val) {
-    var discount = _discountController.text.isNotEmpty ? val : '0';
-    var paid = _amountPaidController.text.isNotEmpty
-        ? _amountPaidController.text
-        : '0';
-
-    setState(() {
-      _paymentAmountController.text =
-          (totalAmount - double.parse(discount)).toString();
-      _balanceController.text =
-          (totalAmount - double.parse(discount) - double.parse(paid))
-              .toString();
-    });
-  }
-
-  _save() async {
-    if (addedItems.isEmpty) {
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          content: const Text("At least One Item Must be added"),
-          actions: [
-            MaterialButton(
-              onPressed: () => Navigator.of(context).pop(),
-              color: Colors.blue,
-              child: const Text("Okay"),
-            )
-          ],
-        ),
-      );
-      return;
-    }
-
-    if (_customerNameController.text.isEmpty ||
-        _numberCOntroller.text.isEmpty) {
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          content: Text("Customer Information not provided"),
-          actions: [
-            MaterialButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text("Okay"),
-              color: Colors.blue,
-            )
-          ],
-        ),
-      );
-      return;
-    }
-
-    TransactionData trx = TransactionData(
-      customerName: _customerNameController.text.trim(),
-      customerAddress: _addressController.text.trim(),
-      customerPhoneNumber: _numberCOntroller.text.trim(),
-      customerEmail: _emailCOntroller.text.trim(),
-      amount: double.parse(_paymentAmountController.text.trim()),
-      amountPaid: double.parse(_amountPaidController.text.trim()),
-      discount: double.parse(_discountController.text.trim()),
-      balance: double.parse(_balanceController.text.trim()),
-      attendant: FirebaseAuth.instance.currentUser!.uid,
-      time: Timestamp.now(),
-    );
-    setState(() {
-      _saving = true;
-    });
-    // insert the created transaction
-    String trxId = "";
-
-    var res = await FirebaseFirestore.instance
-        .collection('transactions')
-        .add(trx.toJson());
-
-    trx.id = res.id;
-
-    for (var i in addedItems) {
-      i.transactionID = res.id;
-      try {
-        await FirebaseFirestore.instance.collection('sales').add(i.toJson());
-      } catch (e) {
-        await showDialog(
+  Future<void> _save() async {
+    if (addedItems.isNotEmpty) {
+      if (double.parse(_balanceController.text.trim()) > 0) {
+        var confm = await showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            content: const Text("Transaction failed"),
+            content: const Text(
+                "Your transaction contains a balance! Are you sure you want to proceed?"),
             actions: [
               MaterialButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text("Okay"),
-                color: Colors.blue,
-              )
+                  color: Colors.grey,
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text("No")),
+              MaterialButton(
+                  color: Colors.red,
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text("Yes")),
             ],
           ),
         );
+        if (confm == false) {
+          return;
+        }
       }
-      setState(() => _saving = false);
-      Navigator.of(context).pushReplacement(
+      setState(() => _processing = true);
+      var attndnt = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .get();
+      TransactionData trx = TransactionData(
+        serialNumber: transactionID + 1,
+        customerName: _customerNameController.text.trim(),
+        customerAddress: _addressController.text.trim(),
+        customerPhoneNumber: _numberCOntroller.text.trim(),
+        customerEmail: _emailCOntroller.text.trim(),
+        amount: double.parse(_equivalentAmount.text.trim()),
+        amountPaid: double.parse(_amountPaidController.text.trim()),
+        balance: double.parse(_balanceController.text.trim()),
+        time: Timestamp.now(),
+        attendant: attndnt.exists ? attndnt.data()!['full name'] : "",
+        pos: double.parse(_posController.text.trim()),
+        cash: double.parse(_cashController.text.trim()),
+        transfer: double.parse(_transferController.text.trim()),
+      );
+
+      var transactionObj = await FirebaseFirestore.instance
+          .collection('transactions')
+          .add(trx.toJson());
+      trx.id = transactionObj.id;
+
+      var db = FirebaseFirestore.instance;
+      var batch = db.batch();
+
+      for (var item in addedItems) {
+        item.transactionID = transactionObj.id;
+        // await FirebaseFirestore.instance.collection('sales').add(item.toJson());
+        var ref = FirebaseFirestore.instance.collection('sales').doc();
+        batch.set(ref, item.toJson());
+        var i = await FirebaseFirestore.instance
+            .collection("inventory")
+            .where("name", isEqualTo: item.name)
+            .get();
+
+        await FirebaseFirestore.instance
+            .collection('inventory')
+            .doc(i.docs.first.id)
+            .update({
+          "available_quantity":
+              i.docs.first.data()['available_quantity'] - item.quantity
+        });
+      }
+      batch.commit();
+
+      _totalAmountController.clear();
+      _quantityController.clear();
+      _equivalentAmount.clear();
+      _amountPaidController.clear();
+      _balanceController.clear();
+      _customerNameController.clear();
+      _numberCOntroller.clear();
+      _addressController.clear();
+      _emailCOntroller.clear();
+      setState(() {
+        addedItems = [];
+        _processing = false;
+      });
+
+      // var companyInfo =
+      //     await FirebaseFirestore.instance.collection('profile').get();
+
+      Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => SellsDetails(transaction: trx),
+          builder: (context) => SellsDetails(
+            transaction: trx,
+          ),
         ),
       );
+    } else {
+      return;
     }
+  }
+
+  _update() async {
+    if (addedItems.isNotEmpty) {
+      if (double.parse(_balanceController.text.trim()) > 0) {
+        var confm = await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            content: const Text(
+                "Your transaction contains a balance! Are you sure you want to proceed?"),
+            actions: [
+              MaterialButton(
+                  color: Colors.grey,
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text("No")),
+              MaterialButton(
+                  color: Colors.red,
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text("Yes")),
+            ],
+          ),
+        );
+        if (confm == false) {
+          return;
+        }
+      }
+      setState(() => _processing = true);
+
+      var attndnt = await FirebaseFirestore.instance
+          .collection("users")
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .get();
+
+      String trxDocID = await FirebaseFirestore.instance
+          .collection("transactions")
+          .where("serial number", isEqualTo: widget.transaction!.serialNumber)
+          .get()
+          .then((values) => values.docs.first.id);
+
+      for (var i in widget.items!) {
+        // reference inventory document
+        var inv = FirebaseFirestore.instance.collection('inventory').doc(i.id!);
+        var q = await inv.get();
+        // update inventory document available quantity
+        await inv.update({
+          "available_quantity": q.data()!['available_quantity'] + i.quantity
+        });
+        // delete previous sales record
+        await FirebaseFirestore.instance
+            .collection('sales')
+            .doc(i.id!)
+            .delete();
+      }
+
+      TransactionData trx = TransactionData(
+        serialNumber: transactionID + 1,
+        customerName: _customerNameController.text.trim(),
+        customerAddress: _addressController.text.trim(),
+        customerPhoneNumber: _numberCOntroller.text.trim(),
+        customerEmail: _emailCOntroller.text.trim(),
+        amount: double.parse(_equivalentAmount.text.trim()),
+        amountPaid: double.parse(_amountPaidController.text.trim()),
+        balance: double.parse(_balanceController.text.trim()),
+        time: Timestamp.now(),
+        attendant: attndnt.exists ? attndnt.data()!['full name'] : "",
+        pos: double.parse(_posController.text.trim()),
+        cash: double.parse(_cashController.text.trim()),
+        transfer: double.parse(_transferController.text.trim()),
+      );
+
+      await FirebaseFirestore.instance
+          .collection('transactions')
+          .doc(trxDocID)
+          .update(trx.toJson());
+
+      trx.id = trxDocID;
+
+      var db = FirebaseFirestore.instance;
+      var batch = db.batch();
+
+      for (var item in addedItems) {
+        item.transactionID = trxDocID;
+        // await FirebaseFirestore.instance.collection('sales').add(item.toJson());
+        var ref = FirebaseFirestore.instance.collection('sales').doc();
+        batch.set(ref, item.toJson());
+        var i = await FirebaseFirestore.instance
+            .collection("inventory")
+            .where("name", isEqualTo: item.name)
+            .get();
+
+        await FirebaseFirestore.instance
+            .collection('inventory')
+            .doc(i.docs.first.id)
+            .update({
+          "available_quantity":
+              i.docs.first.data()['available_quantity'] - item.quantity
+        });
+      }
+      batch.commit();
+
+      _totalAmountController.clear();
+      _quantityController.clear();
+      _equivalentAmount.clear();
+      _amountPaidController.clear();
+      _balanceController.clear();
+      _customerNameController.clear();
+      _numberCOntroller.clear();
+      _addressController.clear();
+      _emailCOntroller.clear();
+      setState(() {
+        addedItems = [];
+        _processing = false;
+      });
+
+      // var companyInfo =
+      //     await FirebaseFirestore.instance.collection('profile').get();
+
+      // -----------------------------------------------------------
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => SellsDetails(
+            transaction: trx,
+          ),
+        ),
+      );
+    } else {
+      return;
+    }
+  }
+
+  _populateInventoryList() {
+    inventoryItems = [];
+    inventoryItems.addAll(
+      widget.inventoryData.where(
+        (element) => _searchText.isNotEmpty
+            ? element.name.toLowerCase().contains(
+                  _searchText.trim().toLowerCase(),
+                )
+            : true,
+      ),
+    );
+
+    setState(() {
+      if (inventoryItems.isNotEmpty) {
+        itemName = inventoryItems.first.name;
+        _priceController.text = inventoryItems.first.maxPrice.toString();
+      }
+      if (widget.transaction != null) {
+        _editing = true;
+
+        var trx = widget.transaction;
+
+        _customerNameController.text = trx!.customerName;
+        _addressController.text = trx.customerAddress;
+        _numberCOntroller.text = trx.customerPhoneNumber;
+        _emailCOntroller.text = trx.customerEmail;
+        _totalAmountController.text = trx.amount.toString();
+        _amountPaidController.text = trx.amountPaid.toString();
+
+        _balanceController.text = trx.balance.toString();
+        totalAmount = trx.amount;
+
+        _equivalentAmount.text = trx.amount.toString();
+
+        _getEditabeItems();
+      } else {
+        _amountPaidController.text = "0";
+      }
+      inventoryItems = inventoryItems;
+    });
   }
 
   @override
@@ -446,378 +651,480 @@ class NewSellsPageState extends State<NewSellsPage> {
     _totalAmountController.dispose();
     _quantityController.dispose();
     _equivalentAmount.dispose();
-    _discountController.dispose();
-    _paymentAmountController.dispose();
     _amountPaidController.dispose();
     _balanceController.dispose();
     _customerNameController.dispose();
     _numberCOntroller.dispose();
     _addressController.dispose();
     _emailCOntroller.dispose();
+    _searchController.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        label: const Text("Save"),
-        icon: _saving
-            ? const CircularProgressIndicator(color: Colors.white)
-            : const Icon(Icons.save),
-        onPressed: _saving ? () {} : _save,
-      ),
-      body: Form(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              Card(
-                elevation: 5.0,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: 300.0,
-                  ),
-                  child: Column(
+    return Form(
+      child: GridView.count(
+        padding: const EdgeInsets.all(8.0),
+        childAspectRatio: MediaQuery.of(context).size.width > 480 ? 5 / 3 : 1,
+        crossAxisCount: MediaQuery.of(context).size.width > 480 ? 2 : 1,
+        children: [
+          Card(
+            elevation: 5.0,
+            child: Column(
+              children: [
+                Container(
+                  color: Colors.tealAccent,
+                  width: double.maxFinite,
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        color: Colors.tealAccent,
-                        width: double.maxFinite,
-                        padding: const EdgeInsets.all(12.0),
-                        child: Row(
+                      const Text('Added Items'),
+                      Text("${addedItems.length} items")
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    children: List.generate(
+                      addedItems.length,
+                      (index) => ListTile(
+                        title: Text(
+                            "${addedItems[index].name} X ${addedItems[index].quantity.toString()}"),
+                        trailing: PopupMenuButton(
+                          itemBuilder: (context) {
+                            return const [
+                              PopupMenuItem<int>(value: 0, child: Text('Edit')),
+                              PopupMenuItem<int>(
+                                value: 1,
+                                child: Text('Remove'),
+                              ),
+                            ];
+                          },
+                          onSelected: (item) async {
+                            switch (item) {
+                              case 0:
+                                _editAdded(addedItems[index]);
+                                break;
+                              case 1:
+                                _removeItem(addedItems[index]);
+                                break;
+                            }
+                          },
+                        ),
+                        subtitle: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Added Items'),
-                            Text("${addedItems.length} items")
+                            Text(
+                                "Price: ${NumberFormat("###,###,###").format(addedItems[index].price)}"),
+                            Text(
+                                "Total Amount: ${NumberFormat("###,###,###").format(addedItems[index].amount)}")
                           ],
                         ),
                       ),
-                      Flexible(
-                        child: ListView(
-                          children: List.generate(
-                            addedItems.length,
-                            (index) => ListTile(
-                              title: Text(
-                                  "${addedItems[index].name} x ${addedItems[index].quantity.toString()}"),
-                              trailing: PopupMenuButton(
-                                itemBuilder: (context) {
-                                  return const [
-                                    PopupMenuItem<int>(
-                                        value: 0, child: Text('Edit')),
-                                    PopupMenuItem<int>(
-                                        value: 1, child: Text('Remove')),
-                                  ];
-                                },
-                                onSelected: (item) async {
-                                  switch (item) {
-                                    case 0:
-                                      _editAdded(addedItems[index]);
-                                      break;
-                                    case 1:
-                                      _removeItem(addedItems[index].name);
-                                      break;
-                                  }
-                                },
+                    ),
+                  ),
+                ),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: MaterialButton(
+                    minWidth: double.maxFinite,
+                    height: 50.0,
+                    color: Colors.teal,
+                    onPressed: _processing ? null : () async => await _save(),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _processing
+                            ? const CircularProgressIndicator()
+                            : const Icon(
+                                Icons.save,
+                                color: Colors.white,
                               ),
-                              subtitle: Row(
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            _editing ? 'Update' : 'Save',
+                            style: const TextStyle(
+                              fontSize: 18.0,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Card(
+            elevation: 5.0,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    color: Colors.tealAccent,
+                    width: double.maxFinite,
+                    padding: const EdgeInsets.all(12.0),
+                    child: Row(
+                      children: [
+                        const Text('Select Item(s)'),
+                        const SizedBox(width: 20),
+                        Flexible(
+                          child: SizedBox(
+                            height: 30,
+                            child: TextFormField(
+                              controller: _searchController,
+                              onChanged: (val) {
+                                _searchText = val;
+                                _populateInventoryList();
+                              },
+                              decoration: InputDecoration(
+                                suffix: IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _searchText = "";
+                                    _searchController.clear();
+                                    _populateInventoryList();
+                                  },
+                                ),
+                                // label: const Text("Search"),
+                                icon: const Icon(Icons.search),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: DropdownButtonFormField(
+                      isDense: true,
+                      value: itemName,
+                      hint: const Text("Select Product"),
+                      onChanged: (value) => setState(() {
+                        itemName = value.toString();
+
+                        maxPrice = inventoryItems
+                            .where((element) => element.name == value)
+                            .first
+                            .maxPrice;
+                        minPrice = inventoryItems
+                            .where((element) => element.name == value)
+                            .first
+                            .minPrice;
+
+                        _priceController.text = maxPrice.toString();
+                      }),
+                      items: inventoryItems
+                          // .where(
+                          //   (element) => _searchController.text.trim().isEmpty
+                          //       ? true
+                          //       : element.name
+                          //           .toLowerCase()
+                          //           .contains(_searchText.toLowerCase()),
+                          // )
+                          .map(
+                            (item) => DropdownMenuItem(
+                              value: item.name,
+                              child: Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text("Price: ${addedItems[index].price}"),
+                                  Text(item.name),
                                   Text(
-                                      "ToTal Amount: ${addedItems[index].price * addedItems[index].quantity}")
+                                    " ${item.available_quantity}",
+                                    style: const TextStyle(
+                                        backgroundColor: Colors.grey),
+                                  ),
                                 ],
                               ),
                             ),
+                          )
+                          .toList(),
+                      decoration: const InputDecoration(
+                        labelText: 'Item Name',
+                        icon: Icon(Icons.inventory_2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            controller: _priceController,
+                            onChanged: (val) => setState(() {
+                              _totalAmountController.text =
+                                  _quantityController.text.isNotEmpty
+                                      ? (double.parse(_priceController.text) *
+                                              double.parse(
+                                                  _quantityController.text))
+                                          .toString()
+                                      : '0';
+                            }),
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Price',
+                              icon: Icon(Icons.price_change),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _totalAmountController,
+                            enabled: false,
+                            decoration: const InputDecoration(
+                              labelText: 'Total Amount',
+                              icon: Icon(Icons.calculate),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: TextFormField(
+                            keyboardType: TextInputType.number,
+                            inputFormatters: <TextInputFormatter>[
+                              FilteringTextInputFormatter(
+                                RegExp(r'[0-9.]'),
+                                allow: true,
+                              ),
+                            ],
+                            onChanged: (val) => setState(() {
+                              _totalAmountController.text =
+                                  _quantityController.text.isNotEmpty
+                                      ? (double.parse(_priceController.text) *
+                                              double.parse(
+                                                  _quantityController.text))
+                                          .toString()
+                                      : '0';
+                            }),
+                            controller: _quantityController,
+                            decoration: const InputDecoration(
+                              labelText: 'Quantity',
+                              hintText: 'How many items?',
+                              icon: Icon(Icons.calculate),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(14.0),
+                          child: GestureDetector(
+                            onTap: _addItem,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                borderRadius: BorderRadius.circular(25.0),
+                              ),
+                              width: 50.0,
+                              height: 50.0,
+                              child: const Icon(Icons.add),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Card(
+            elevation: 5.0,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  color: Colors.tealAccent,
+                  width: double.maxFinite,
+                  padding: const EdgeInsets.all(12.0),
+                  child: const Text('Payment Infomation'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _equivalentAmount,
+                          keyboardType: TextInputType.number,
+                          enabled: false,
+                          decoration: const InputDecoration(
+                            labelText: 'Amount',
+                            icon: Icon(Icons.calculate),
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              Card(
-                elevation: 5.0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      color: Colors.tealAccent,
-                      width: double.maxFinite,
-                      padding: const EdgeInsets.all(12.0),
-                      child: const Text('Select Item(s)'),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: DropdownButtonFormField(
-                        value: name,
-                        onChanged: (value) => setState(() {
-                          name = value.toString();
-                          _priceController.text = inventoryItems
-                              .where((element) => element.name == value)
-                              .first
-                              .price
-                              .toString();
-                        }),
-                        items: List.generate(
-                          inventoryItems.length,
-                          (index) => DropdownMenuItem(
-                            value: inventoryItems[index].name,
-                            child: Text(
-                                "${inventoryItems[index].name}   (${inventoryItems[index].availableQuantity} available)"),
-                          ),
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Item Name',
-                          icon: Icon(Icons.inventory_2),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _priceController,
-                              keyboardType: TextInputType.number,
-                              enabled: false,
-                              decoration: const InputDecoration(
-                                labelText: 'Price',
-                                icon: Icon(Icons.price_change),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _totalAmountController,
-                              keyboardType: TextInputType.number,
-                              enabled: false,
-                              decoration: const InputDecoration(
-                                labelText: 'Total Amount',
-                                icon: Icon(Icons.calculate),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: TextFormField(
-                        keyboardType: TextInputType.number,
-                        inputFormatters: <TextInputFormatter>[
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        onChanged: (val) => setState(() {
-                          _totalAmountController.text =
-                              _quantityController.text.isNotEmpty
-                                  ? (double.parse(_priceController.text) *
-                                          int.parse(_quantityController.text))
-                                      .toString()
-                                  : '0';
-                        }),
-                        controller: _quantityController,
-                        decoration: const InputDecoration(
-                          labelText: 'Quantity',
-                          hintText: 'How many items?',
-                          icon: Icon(Icons.calculate),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: MaterialButton(
-                        height: 50.0,
-                        color: Colors.green,
-                        onPressed: _addItem,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(5.0),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6.0),
-                              child: const Icon(
-                                Icons.add,
-                                color: Colors.white,
-                                size: 30,
-                              ),
-                            ),
-                            const Text(
-                              "ADD",
-                              style: TextStyle(
-                                fontSize: 18.0,
-                                color: Colors.white,
-                              ),
-                            )
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly,
                           ],
+                          controller: _cashController,
+                          onChanged: _paidChanged,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Cash',
+                            hintText: 'Cash Payment',
+                            icon: Icon(Icons.calculate),
+                          ),
                         ),
                       ),
-                    )
-                  ],
+                      Expanded(
+                        child: TextFormField(
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          controller: _posController,
+                          onChanged: _paidChanged,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'ATM/POS',
+                            hintText: 'Using ATM card',
+                            icon: Icon(Icons.calculate),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: TextFormField(
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          controller: _transferController,
+                          onChanged: _paidChanged,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Transfer',
+                            hintText: 'Bank Transfer',
+                            icon: Icon(Icons.calculate),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Card(
-                elevation: 5.0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      color: Colors.tealAccent,
-                      width: double.maxFinite,
-                      padding: EdgeInsets.all(12.0),
-                      child: Text('Payment Infomation'),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _equivalentAmount,
-                              keyboardType: TextInputType.number,
-                              enabled: false,
-                              decoration: const InputDecoration(
-                                labelText: 'Amount',
-                                icon: Icon(Icons.calculate),
-                              ),
-                            ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          enabled: false,
+                          controller: _amountPaidController,
+                          decoration: const InputDecoration(
+                            labelText: 'Amoint Paid',
+                            icon: Icon(Icons.remove),
                           ),
-                          Expanded(
-                            child: TextFormField(
-                              inputFormatters: <TextInputFormatter>[
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              onChanged: _discountChanged,
-                              controller: _discountController,
-                              decoration: const InputDecoration(
-                                labelText: 'Discount',
-                                hintText: 'Enter Discounted amount',
-                                icon: Icon(Icons.remove),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: TextFormField(
-                        controller: _paymentAmountController,
-                        keyboardType: TextInputType.number,
-                        enabled: false,
-                        decoration: const InputDecoration(
-                          labelText: 'Total Amount',
-                          icon: Icon(Icons.calculate),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              inputFormatters: <TextInputFormatter>[
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              controller: _amountPaidController,
-                              onChanged: _paidChanged,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Amount Paid',
-                                hintText: 'How much is being payed',
-                                icon: Icon(Icons.calculate),
-                              ),
-                            ),
+                      Expanded(
+                        child: TextFormField(
+                          enabled: false,
+                          controller: _balanceController,
+                          decoration: const InputDecoration(
+                            labelText: 'Balance',
+                            hintText: 'Amount Remaining',
+                            icon: Icon(Icons.remove),
                           ),
-                          Expanded(
-                            child: TextFormField(
-                              enabled: false,
-                              controller: _balanceController,
-                              decoration: const InputDecoration(
-                                labelText: 'Amount Remaining',
-                                hintText: 'Amount left',
-                                icon: Icon(Icons.remove),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Card(
-                elevation: 5.0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      color: Colors.tealAccent,
-                      width: double.maxFinite,
-                      padding: EdgeInsets.all(12.0),
-                      child: Text('Customer Infomation'),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: TextFormField(
-                        controller: _customerNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Customer Name',
-                          icon: Icon(Icons.person),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              inputFormatters: <TextInputFormatter>[
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              controller: _numberCOntroller,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Phone Number',
-                                hintText: 'phone Number of customer',
-                                icon: Icon(Icons.phone),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _emailCOntroller,
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                                hintText: 'Customer\'s email',
-                                icon: Icon(Icons.email),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: TextFormField(
-                        controller: _addressController,
-                        decoration: const InputDecoration(
-                          labelText: 'Address',
-                          hintText: 'Customer\'s address',
-                          icon: Icon(Icons.home),
-                        ),
-                      ),
-                    )
-                  ],
-                ),
-              ),
-              const Padding(padding: EdgeInsets.symmetric(vertical: 14.0))
-            ],
+              ],
+            ),
           ),
-        ),
+          Card(
+            elevation: 5.0,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  color: Colors.tealAccent,
+                  width: double.maxFinite,
+                  padding: const EdgeInsets.all(12.0),
+                  child: const Text('Customer Infomation'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextFormField(
+                    controller: _customerNameController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Customer Name',
+                      icon: Icon(Icons.person),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          controller: _numberCOntroller,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Phone Number',
+                            hintText: 'phone Number of customer',
+                            icon: Icon(Icons.phone),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _emailCOntroller,
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            hintText: 'Customer\'s email',
+                            icon: Icon(Icons.email),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextFormField(
+                    controller: _addressController,
+                    decoration: const InputDecoration(
+                      labelText: 'Address',
+                      hintText: 'Customer\'s address',
+                      icon: Icon(Icons.home),
+                    ),
+                  ),
+                )
+              ],
+            ),
+          ),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 14.0))
+        ],
       ),
     );
   }
